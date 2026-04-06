@@ -563,6 +563,72 @@ class InoImagesToReferenceLatent(io.ComfyNode):
         return io.NodeOutput(latents, pos_cond, neg_cond)
 
 
+class InoIsImagePortrait(io.ComfyNode):
+    @classmethod
+    def define_schema(cls):
+        return io.Schema(
+            node_id="InoIsImagePortrait",
+            display_name="Ino Is Image Portrait",
+            category="InoImageHelper",
+            description="Returns True if the image height is greater than its width.",
+            inputs=[
+                io.Image.Input("image"),
+            ],
+            outputs=[
+                io.Boolean.Output(display_name="is_portrait"),
+            ],
+        )
+
+    @classmethod
+    def execute(cls, image) -> io.NodeOutput:
+        _, h, w, _ = image.shape
+        return io.NodeOutput(h > w)
+
+
+class InoIsImageLandscape(io.ComfyNode):
+    @classmethod
+    def define_schema(cls):
+        return io.Schema(
+            node_id="InoIsImageLandscape",
+            display_name="Ino Is Image Landscape",
+            category="InoImageHelper",
+            description="Returns True if the image width is greater than its height.",
+            inputs=[
+                io.Image.Input("image"),
+            ],
+            outputs=[
+                io.Boolean.Output(display_name="is_landscape"),
+            ],
+        )
+
+    @classmethod
+    def execute(cls, image) -> io.NodeOutput:
+        _, h, w, _ = image.shape
+        return io.NodeOutput(w > h)
+
+
+class InoIsImageSquare(io.ComfyNode):
+    @classmethod
+    def define_schema(cls):
+        return io.Schema(
+            node_id="InoIsImageSquare",
+            display_name="Ino Is Image Square",
+            category="InoImageHelper",
+            description="Returns True if the image width equals its height.",
+            inputs=[
+                io.Image.Input("image"),
+            ],
+            outputs=[
+                io.Boolean.Output(display_name="is_square"),
+            ],
+        )
+
+    @classmethod
+    def execute(cls, image) -> io.NodeOutput:
+        _, h, w, _ = image.shape
+        return io.NodeOutput(h == w)
+
+
 LOCAL_NODE_CLASS = {
     "InoSaveImages": InoSaveImages,
     "InoImageResizeByLongerSideV1": InoImageResizeByLongerSideV1,
@@ -574,6 +640,9 @@ LOCAL_NODE_CLASS = {
     "InoImagesToReferenceLatent": InoImagesToReferenceLatent,
     "InoImagesFromFolderToReferenceLatent": InoImagesFromFolderToReferenceLatent,
     "InoImageListToBatch": InoImageListToBatch,
+    "InoIsImagePortrait": InoIsImagePortrait,
+    "InoIsImageLandscape": InoIsImageLandscape,
+    "InoIsImageSquare": InoIsImageSquare,
 }
 LOCAL_NODE_NAME = {
     "InoSaveImages": "Ino Save Images",
@@ -586,4 +655,7 @@ LOCAL_NODE_NAME = {
     "InoImagesToReferenceLatent": "Ino Images To Reference Latent",
     "InoImagesFromFolderToReferenceLatent": "Ino Images From Folder To Reference Latent",
     "InoImageListToBatch": "Ino Image List To Batch",
+    "InoIsImagePortrait": "Ino Is Image Portrait",
+    "InoIsImageLandscape": "Ino Is Image Landscape",
+    "InoIsImageSquare": "Ino Is Image Square",
 }
