@@ -1,4 +1,4 @@
-inopyutils==1.8.2
+inopyutils==1.8.3
 openai
 huggingface_hub
 hf_xet
