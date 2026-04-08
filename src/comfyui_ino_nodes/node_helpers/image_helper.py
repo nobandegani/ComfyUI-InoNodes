@@ -629,6 +629,81 @@ class InoIsImageSquare(io.ComfyNode):
         return io.NodeOutput(h == w)
 
 
+import math
+
+ASPECT_RATIO_OPTIONS = [
+    "1:1",
+    "16:9",
+    "9:16",
+    "7:9",
+    "9:7",
+]
+
+ASPECT_RATIO_MAP = {
+    "1:1": (1, 1),
+    "16:9": (16, 9),
+    "9:16": (9, 16),
+    "7:9": (7, 9),
+    "9:7": (9, 7),
+}
+
+
+class InoMegapixelResolution(io.ComfyNode):
+    @classmethod
+    def define_schema(cls):
+        return io.Schema(
+            node_id="InoMegapixelResolution",
+            display_name="Ino Megapixel Resolution",
+            category="InoImageHelper",
+            description="Calculate width and height from megapixels and aspect ratio.",
+            inputs=[
+                io.Float.Input("megapixels", default=1.0, min=0.01, max=100.0, step=0.01),
+                io.Combo.Input("aspect_ratio", options=ASPECT_RATIO_OPTIONS, default="1:1 Square"),
+                io.String.Input("custom_aspect_ratio", default=""),
+                io.Int.Input("divisible_by", default=8, min=1, max=512),
+            ],
+            outputs=[
+                io.Int.Output(display_name="width"),
+                io.Int.Output(display_name="height"),
+                io.Int.Output(display_name="aspect_ratio_x"),
+                io.Int.Output(display_name="aspect_ratio_y"),
+                io.String.Output(display_name="aspect_ratio"),
+            ],
+        )
+
+    @classmethod
+    def execute(cls, megapixels, aspect_ratio, custom_aspect_ratio, divisible_by) -> io.NodeOutput:
+        # Parse aspect ratio
+        custom = custom_aspect_ratio.strip()
+        if custom and ":" in custom:
+            parts = custom.split(":")
+            try:
+                ar_x = int(parts[0].strip())
+                ar_y = int(parts[1].strip())
+                if ar_x <= 0 or ar_y <= 0:
+                    raise ValueError("Aspect ratio values must be positive")
+            except (ValueError, IndexError):
+                ar_x, ar_y = ASPECT_RATIO_MAP.get(aspect_ratio, (1, 1))
+        else:
+            ar_x, ar_y = ASPECT_RATIO_MAP.get(aspect_ratio, (1, 1))
+
+        total_pixels = megapixels * 1_000_000
+
+        # width / height = ar_x / ar_y
+        # width * height = total_pixels
+        # width = sqrt(total_pixels * ar_x / ar_y)
+        raw_width = math.sqrt(total_pixels * ar_x / ar_y)
+        raw_height = math.sqrt(total_pixels * ar_y / ar_x)
+
+        # Round to nearest divisible_by
+        width = max(divisible_by, round(raw_width / divisible_by) * divisible_by)
+        height = max(divisible_by, round(raw_height / divisible_by) * divisible_by)
+
+        ar_string = f"{ar_x}:{ar_y}"
+
+        return io.NodeOutput(width, height, ar_x, ar_y, ar_string)
+
+
 LOCAL_NODE_CLASS = {
     "InoSaveImages": InoSaveImages,
     "InoImageResizeByLongerSideV1": InoImageResizeByLongerSideV1,
@@ -643,6 +718,7 @@ LOCAL_NODE_CLASS = {
     "InoIsImagePortrait": InoIsImagePortrait,
     "InoIsImageLandscape": InoIsImageLandscape,
     "InoIsImageSquare": InoIsImageSquare,
+    "InoMegapixelResolution": InoMegapixelResolution,
 }
 LOCAL_NODE_NAME = {
     "InoSaveImages": "Ino Save Images",
@@ -658,4 +734,5 @@ LOCAL_NODE_NAME = {
     "InoIsImagePortrait": "Ino Is Image Portrait",
     "InoIsImageLandscape": "Ino Is Image Landscape",
     "InoIsImageSquare": "Ino Is Image Square",
+    "InoMegapixelResolution": "Ino Megapixel Resolution",
 }
