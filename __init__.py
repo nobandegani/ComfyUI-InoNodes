@@ -161,7 +161,7 @@ __all__ = [
 
 __author__ = """InoNodes"""
 __email__ = "contact@inoland.net"
-__version__ = "2.0.4"
+__version__ = "2.0.5"
 
 from .src.comfyui_ino_nodes.node_helper import log_capture
 log_capture.install()
