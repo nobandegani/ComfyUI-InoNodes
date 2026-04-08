@@ -10,17 +10,17 @@ class FileSyncer:
         self.global_comfy_models: dict[str, list[str]] = {
             "flux-2-dev": [
                 "comfyui/models/diffusion_models/flux-2-dev",
-                "comfyui/models/text_encoders/Flux2",
+                "comfyui/models/text_encoders/flux-2-dev",
                 "comfyui/models/vae/Flux2"
             ],
             "flux-2-klein-9b": [
                 "comfyui/models/diffusion_models/flux-2-klein-9b",
-                "comfyui/models/text_encoders/Flux2",
+                "comfyui/models/text_encoders/flux-2-klein",
                 "comfyui/models/vae/Flux2"
             ],
             "flux-2-klein-9b-base": [
                 "comfyui/models/diffusion_models/flux-2-klein-9b-base",
-                "comfyui/models/text_encoders/Flux2",
+                "comfyui/models/text_encoders/flux-2-klein",
                 "comfyui/models/vae/Flux2"
             ],
             "flux-2-loras": [
