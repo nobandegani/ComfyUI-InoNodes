@@ -633,18 +633,34 @@ import math
 
 ASPECT_RATIO_OPTIONS = [
     "1:1",
-    "16:9",
     "9:16",
-    "7:9",
-    "9:7",
+    "16:9",
+    "4:5",
+    "5:4",
+    "3:4",
+    "4:3",
+    "2:3",
+    "3:2",
+    "5:7",
+    "7:5",
+    "1:2",
+    "2:1",
 ]
 
 ASPECT_RATIO_MAP = {
     "1:1": (1, 1),
-    "16:9": (16, 9),
     "9:16": (9, 16),
-    "7:9": (7, 9),
-    "9:7": (9, 7),
+    "16:9": (16, 9),
+    "4:5": (4, 5),
+    "5:4": (5, 4),
+    "3:4": (3, 4),
+    "4:3": (4, 3),
+    "2:3": (2, 3),
+    "3:2": (3, 2),
+    "5:7": (5, 7),
+    "7:5": (7, 5),
+    "1:2": (1, 2),
+    "2:1": (2, 1),
 }
 
 
@@ -660,7 +676,7 @@ class InoMegapixelResolution(io.ComfyNode):
                 io.Float.Input("megapixels", default=1.0, min=0.01, max=100.0, step=0.01),
                 io.Combo.Input("aspect_ratio", options=ASPECT_RATIO_OPTIONS, default="1:1 Square"),
                 io.String.Input("custom_aspect_ratio", default=""),
-                io.Int.Input("divisible_by", default=8, min=1, max=512),
+                io.Int.Input("divisible_by", default=16, min=1, max=512),
             ],
             outputs=[
                 io.Int.Output(display_name="width"),
