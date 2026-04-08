@@ -128,6 +128,27 @@ class InoCastAnyToControlnet(io.ComfyNode):
         return io.NodeOutput(input_any)
 
 
+class InoCastStringToCombo(io.ComfyNode):
+    @classmethod
+    def define_schema(cls):
+        return io.Schema(
+            node_id="InoCastStringToCombo",
+            display_name="Ino Cast String To Combo",
+            category="InoCastHelper",
+            description="Converts a string to a combo-compatible output. Wire this into any combo input (e.g. parent_folder).",
+            inputs=[
+                io.String.Input("input_string", default=""),
+            ],
+            outputs=[
+                io.AnyType.Output(display_name="combo"),
+            ],
+        )
+
+    @classmethod
+    def execute(cls, input_string) -> io.NodeOutput:
+        return io.NodeOutput(input_string)
+
+
 LOCAL_NODE_CLASS = {
     "InoCastAnyToString": InoCastAnyToString,
     "InoCastAnyToInt": InoCastAnyToInt,
@@ -135,6 +156,7 @@ LOCAL_NODE_CLASS = {
     "InoCastAnyToClip": InoCastAnyToClip,
     "InoCastAnyToVae": InoCastAnyToVae,
     "InoCastAnyToControlnet": InoCastAnyToControlnet,
+    "InoCastStringToCombo": InoCastStringToCombo,
 }
 LOCAL_NODE_NAME = {
     "InoCastAnyToString": "Ino Cast Any To String",
@@ -143,4 +165,5 @@ LOCAL_NODE_NAME = {
     "InoCastAnyToClip": "Ino Cast Any To Clip",
     "InoCastAnyToVae": "Ino Cast Any To Vae",
     "InoCastAnyToControlnet": "Ino Cast Any To Controlnet",
+    "InoCastStringToCombo": "Ino Cast String To Combo",
 }
