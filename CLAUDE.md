@@ -2,12 +2,13 @@
 
 ## Project Overview
 
-Custom node package for ComfyUI (v1.3.2) providing 125+ nodes across 18 categories. Published by Inoland.
+Custom node package for ComfyUI (v2.0.4) providing 131 nodes across 18 categories. Published by Inoland.
 
 - **Package**: `comfyui_ino_nodes`
 - **Python**: >= 3.10
+- **Conda env**: `comfyui` — run Python commands with `conda run -n comfyui`
 - **Entry point**: `__init__.py` (aggregates all nodes via `NODE_CLASS_MAPPINGS`)
-- **Tests**: `cd src/comfyui_ino_nodes && pytest`
+- **Tests**: `conda run -n comfyui pytest` (from src/comfyui_ino_nodes)
 - **Dependencies**: inopyutils, openai, aiohttp, numpy, Pillow, torch, huggingface_hub, hf_xet
 
 ## Architecture
@@ -17,56 +18,56 @@ All nodes use **ComfyUI V3 schema** (`io.ComfyNode` with `define_schema` + `exec
 ```
 __init__.py                          # Root — registers all nodes + basic auth middleware + log_capture
 src/comfyui_ino_nodes/
-├── node_helper.py                   # Shared utilities (resolve_comfy_path, load_image, load_images_from_folder, LogCapture, etc.)
+├── node_helper.py                   # Shared utilities (resolve_comfy_path, PARENT_FOLDER_OPTIONS, load_image, load_images_from_folder, LogCapture, etc.)
 ├── init_helper.py                   # Initialization utilities
-├── basic_auth.py                    # HTTP Basic Auth middleware
+├── basic_auth.py                    # HTTP Basic Auth middleware (1 node)
 ├── sync_assets.py                   # Asset synchronization
 ├── class_helpers/                   # Feature modules
-│   ├── file_helper.py              # 13 nodes — InoFileHelper (zip, unzip, copy, move, hash, etc.)
+│   ├── file_helper.py              # 13 nodes — InoFileHelper (zip, unzip, copy, remove, count, validate, dedup, etc.)
 │   ├── media_helper.py             # 1 node — FFmpeg video conversion
 │   ├── http_helper.py              # 1 node — REST client (GET/POST/PUT/DELETE/PATCH)
 │   ├── json_helper.py              # 3 nodes — JSON field manipulation and save
 │   ├── openai_helper.py            # 2 nodes — OpenAI API (responses + chat completions)
-│   └── runpod_helper.py            # 1 node — Runpod serverless vLLM inference
+│   └── runpod_helper.py            # 1 node — Runpod serverless vLLM inference (with polling/retry)
 ├── node_helpers/                    # Data type nodes
 │   ├── bool_helper.py              # 4 nodes — Boolean ops
 │   ├── int_helper.py               # 4 nodes — Integer ops
 │   ├── float_helper.py             # 2 nodes — Float ops
 │   ├── string_helper.py            # 13 nodes — String manipulation + save text
-│   ├── image_helper.py             # 10 nodes — Image load, save, resize, crop, batch, base64
+│   ├── image_helper.py             # 14 nodes — Image load, save, resize, crop, batch, base64, megapixel resolution
 │   ├── video_helper.py             # 1 node — Video preview
 │   ├── time_helper.py              # 4 nodes — DateTime formatting and duration
 │   ├── path_helper.py              # 2 nodes — Path utilities
-│   └── cast_helper.py             # 6 nodes — Type casting (Any → String/Int/Model/Clip/Vae/ControlNet)
+│   └── cast_helper.py             # 7 nodes — Type casting (Any → String/Int/Model/Clip/Vae/ControlNet/etc.)
 ├── s3_helper/                       # S3 cloud storage (16 nodes)
 │   ├── s3_helper.py                # S3Helper class + InoS3Config node
-│   ├── s3_download_*.py            # Download: file, folder, image, audio, video, string
+│   ├── s3_download_*.py            # Download: file, folder, image, audio
 │   ├── s3_upload_*.py              # Upload: file, folder, image, audio, video, string
 │   ├── s3_sync_folder_node.py      # Bidirectional sync
 │   ├── s3_verify_file_node.py      # File verification
 │   └── s3_get_download_url.py      # Presigned URL generation
-├── utils/extra_nodes.py            # 8 nodes — Relay, switches, delay, logging, noise, length
+├── utils/extra_nodes.py            # 9 nodes — Relay, switches, delay, logging, noise, length
 ├── workflow_helpers/                # Complex workflow nodes
 │   ├── download_model_helper.py    # 13 nodes — Download from S3/HF/Civitai/HTTP
 │   ├── load_model_helper.py        # 9 nodes — Load VAE/CLIP/ControlNet/Diffusion/LoRA
 │   ├── lora_helper.py              # 1 node — Load multiple LoRAs
 │   ├── prompt_helper.py            # 1 node — Random character prompt generation
-│   └── sampler_helper.py           # 11 nodes — Model config, conditioning, sampler setup
+│   └── sampler_helper.py           # 10 nodes — Model config, conditioning, sampler setup
 ├── data/                            # CSV/JSON configs for models, LoRAs, clips, VAEs
 └── web/js/inonodes.js              # Frontend extension
 ```
 
-## Node Categories (18 categories, 125 nodes)
+## Node Categories (18 categories, 131 nodes)
 
 | Category | Count | File(s) |
 |---|---|---|
 | InoBoolHelper | 4 | bool_helper.py |
-| InoCastHelper | 6 | cast_helper.py |
-| InoExtraNodes | 8 | extra_nodes.py |
+| InoCastHelper | 7 | cast_helper.py |
+| InoExtraNodes | 9 | extra_nodes.py |
 | InoFileHelper | 13 | file_helper.py |
 | InoFloatHelper | 2 | float_helper.py |
 | InoHttpHelper | 1 | http_helper.py |
-| InoImageHelper | 10 | image_helper.py |
+| InoImageHelper | 14 | image_helper.py |
 | InoIntHelper | 4 | int_helper.py |
 | InoJsonHelper | 3 | json_helper.py |
 | InoMediaHelper | 1 | media_helper.py |
@@ -75,7 +76,7 @@ src/comfyui_ino_nodes/
 | InoPathHelper | 2 | path_helper.py |
 | InoRunpodHelper | 1 | runpod_helper.py |
 | InoS3Helper | 16 | s3_helper/*.py |
-| InoSamplerHelper | 11 | sampler_helper.py, extra_nodes.py (InoRandomNoise) |
+| InoSamplerHelper | 10 | sampler_helper.py |
 | InoStringHelper | 13 | string_helper.py |
 | InoTimeHelper | 4 | time_helper.py |
 | InoVideoHelper | 1 | video_helper.py |
@@ -120,24 +121,14 @@ Nodes that deal with local files use:
 - **Inputs**: `parent_folder` (combo: input/output/temp), `folder` (string), `filename` (string, if needed)
 - **Outputs**: `success` (bool), `message` (string), `rel_path` (string), `abs_path` (string)
 
-### S3 Upload Media Nodes (image/audio/video/string)
+### S3 Nodes Convention
 
-- Save to temp directory under node-specific subfolder (e.g., `temp/s3_upload_image/`)
-- Local filename always uses `InoUtilHelper.get_date_time_utc_base64()` for uniqueness
-- `unique_file_name` (default True) controls S3 filename: unique name or user-provided `filename`
-- `filename` input strips extension via `Path(filename).stem` — extension comes from the media type
-- No `execute` input, no `delete_local`, no `parent_folder`/`folder` — temp auto-cleans
-
-### S3 Download Media Nodes (image/audio/video/string)
-
-- Save to temp directory under node-specific subfolder
-- No `parent_folder`/`folder` inputs — no `rel_path`/`abs_path` outputs
-- Outputs: `success`, `message`, + the media type
-
-### S3 Download/Upload File/Folder Nodes
-
-- Use `parent_folder`/`folder`/`filename` pattern for local paths
-- Upload file/folder have `execute` trigger input and `delete_local` option
+All S3 nodes use `parent_folder`/`folder` for local paths and output `success`, `message`, `rel_path`, `abs_path`.
+- **Upload file/folder**: have `execute` trigger input and `delete_local` option
+- **Upload media** (image/audio/video/string): save to local first, then upload to S3
+- **Download media** (image/audio): download from S3 to local `parent_folder`/`folder`
+- **Sync**: bidirectional sync between S3 and local folder
+- **Verify**: compare local file against S3 (size, md5, sha256)
 
 ### Result Handling
 
