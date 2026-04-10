@@ -6,10 +6,10 @@ from inopyutils import ino_is_err
 from comfy_api.latest import io
 
 from .s3_helper import S3Helper, S3_EMPTY_CONFIG_STRING
-from ..node_helper import PARENT_FOLDER_OPTIONS, resolve_comfy_path
+from ..node_helper import PARENT_FOLDER_OPTIONS, resolve_comfy_path, FailureInvalidatesCacheMixin
 
 
-class InoS3UploadFile(io.ComfyNode):
+class InoS3UploadFile(FailureInvalidatesCacheMixin, io.ComfyNode):
     @classmethod
     def define_schema(cls):
         return io.Schema(
@@ -38,18 +38,22 @@ class InoS3UploadFile(io.ComfyNode):
     @classmethod
     async def execute(cls, execute, enabled, s3_path_key, parent_folder, folder, filename, delete_local, s3_config=None) -> io.NodeOutput:
         if not enabled:
+            cls._bump_failure()
             return io.NodeOutput(False, "not enabled", "")
         if not execute:
+            cls._bump_failure()
             return io.NodeOutput(False, "execute empty", "")
 
         validate_s3_key = S3Helper.validate_s3_key(s3_path_key)
         if not validate_s3_key["success"]:
+            cls._bump_failure()
             return io.NodeOutput(False, validate_s3_key["msg"], "")
 
         _, abs_path = resolve_comfy_path(parent_folder, folder, filename)
 
         validate_local_path = S3Helper.validate_local_path(Path(abs_path))
         if not validate_local_path["success"]:
+            cls._bump_failure()
             return io.NodeOutput(False, validate_local_path["msg"], "")
 
         local_ext = Path(filename).suffix
@@ -64,6 +68,7 @@ class InoS3UploadFile(io.ComfyNode):
 
         s3_instance = S3Helper.get_instance(s3_config)
         if ino_is_err(s3_instance):
+            cls._bump_failure()
             return io.NodeOutput(False, s3_instance["msg"], "")
         s3_instance = s3_instance["instance"]
 
@@ -71,4 +76,4 @@ class InoS3UploadFile(io.ComfyNode):
         if s3_result["success"] and delete_local:
             os.remove(abs_path)
 
-        return io.NodeOutput(s3_result["success"], s3_result["msg"], s3_full_key)
+        return io.NodeOutput(cls._track(s3_result["success"]), s3_result["msg"], s3_full_key)

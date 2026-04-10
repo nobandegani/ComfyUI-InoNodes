@@ -2,10 +2,10 @@ from inopyutils import InoJsonHelper, InoHttpHelper
 
 from comfy_api.latest import io
 
-from ..node_helper import ino_print_log
+from ..node_helper import ino_print_log, FailureInvalidatesCacheMixin
 
 
-class InoHttpCall(io.ComfyNode):
+class InoHttpCall(FailureInvalidatesCacheMixin, io.ComfyNode):
     @classmethod
     def define_schema(cls):
         return io.Schema(
@@ -37,6 +37,7 @@ class InoHttpCall(io.ComfyNode):
                       trust_env=False, allow_redirects=False, max_retries=10) -> io.NodeOutput:
         if not enabled:
             ino_print_log("InoHttpCall", "Attempt to run but disabled")
+            cls._bump_failure()
             return io.NodeOutput(False, 0, "Attempt to run but disabled", "")
 
         http_client = None
@@ -66,11 +67,13 @@ class InoHttpCall(io.ComfyNode):
             else:
                 await http_client.close()
                 ino_print_log("InoHttpCall", "Invalid request type", request_type)
+                cls._bump_failure()
                 return io.NodeOutput(False, 0, "Invalid request type", "")
 
             await http_client.close()
             if not resp["success"]:
                 ino_print_log("InoHttpCall", resp["msg"], resp)
+                cls._bump_failure()
                 return io.NodeOutput(False, 0, resp["msg"], str(resp))
 
             ino_print_log("InoHttpCall", "Success")
@@ -79,6 +82,7 @@ class InoHttpCall(io.ComfyNode):
             if http_client:
                 await http_client.close()
             ino_print_log("InoHttpCall", "", e)
+            cls._bump_failure()
             return io.NodeOutput(False, 0, str(e), "")
 
 

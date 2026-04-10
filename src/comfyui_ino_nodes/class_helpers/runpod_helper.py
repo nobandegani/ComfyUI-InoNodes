@@ -4,16 +4,10 @@ from inopyutils import InoRunpodHelper, ino_is_err
 
 from comfy_api.latest import io
 
-from ..node_helper import ino_print_log
+from ..node_helper import ino_print_log, FailureInvalidatesCacheMixin
 
 
-class InoVllmRunSync(io.ComfyNode):
-    _failure_nonce = 0
-
-    @classmethod
-    def fingerprint_inputs(cls, **kwargs):
-        return f"{cls._failure_nonce}:{sorted(kwargs.items())}"
-
+class InoVllmRunSync(FailureInvalidatesCacheMixin, io.ComfyNode):
     @classmethod
     def define_schema(cls):
         return io.Schema(
@@ -54,7 +48,7 @@ class InoVllmRunSync(io.ComfyNode):
                       timeout=300.0, max_polls=24, poll_delay=10.0, max_failed_retries=5) -> io.NodeOutput:
         if not enabled:
             ino_print_log("InoVllmRunSync", "Node is disabled")
-            cls._failure_nonce += 1
+            cls._bump_failure()
             return io.NodeOutput(False, "", "not enabled", 0, 0, "", "", "")
 
         try:
@@ -73,7 +67,7 @@ class InoVllmRunSync(io.ComfyNode):
             )
 
             if ino_is_err(response):
-                cls._failure_nonce += 1
+                cls._bump_failure()
                 return io.NodeOutput(False, "", response.get("msg", "unknown error"), 0, 0, "", "", "")
 
             return io.NodeOutput(
@@ -88,7 +82,7 @@ class InoVllmRunSync(io.ComfyNode):
             )
         except Exception as e:
             ino_print_log("InoVllmRunSync", "", e)
-            cls._failure_nonce += 1
+            cls._bump_failure()
             return io.NodeOutput(False, "", f"response failed: {e}", 0, 0, "", "", "")
 
 

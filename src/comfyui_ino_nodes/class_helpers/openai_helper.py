@@ -5,10 +5,10 @@ from openai import OpenAI
 
 from comfy_api.latest import io
 
-from ..node_helper import ino_print_log
+from ..node_helper import ino_print_log, FailureInvalidatesCacheMixin
 
 
-class InoOpenaiResponses(io.ComfyNode):
+class InoOpenaiResponses(FailureInvalidatesCacheMixin, io.ComfyNode):
     @classmethod
     def define_schema(cls):
         return io.Schema(
@@ -42,6 +42,7 @@ class InoOpenaiResponses(io.ComfyNode):
                       openai_api_key="", timeout=300, max_retries=3, model="gpt-5") -> io.NodeOutput:
         if not enabled:
             ino_print_log("InoOpenaiResponses", "Node is disabled")
+            cls._bump_failure()
             return io.NodeOutput(False, "", "not enabled", "", "", "")
 
         try:
@@ -69,10 +70,11 @@ class InoOpenaiResponses(io.ComfyNode):
             return io.NodeOutput(True, response.id, response.status, error_message, response_text, response_output)
         except Exception as e:
             ino_print_log("InoOpenaiResponses", "", e)
+            cls._bump_failure()
             return io.NodeOutput(False, "", "Openai response failed", str(e), "", "")
 
 
-class InoOpenaiChatCompletions(io.ComfyNode):
+class InoOpenaiChatCompletions(FailureInvalidatesCacheMixin, io.ComfyNode):
     @classmethod
     def define_schema(cls):
         return io.Schema(
@@ -104,6 +106,7 @@ class InoOpenaiChatCompletions(io.ComfyNode):
                       model="gpt-5", system_prompt="", image_url="", temperature=0.7, max_tokens=1024) -> io.NodeOutput:
         if not enabled:
             ino_print_log("InoOpenaiChatCompletions", "Node is disabled")
+            cls._bump_failure()
             return io.NodeOutput(False, "", "", "not enabled")
 
         try:
@@ -121,9 +124,11 @@ class InoOpenaiChatCompletions(io.ComfyNode):
             else:
                 error_msg = result.get("message", "unknown error")
                 ino_print_log("InoOpenaiChatCompletions", "", error_msg)
+                cls._bump_failure()
                 return io.NodeOutput(False, "", "", error_msg)
         except Exception as e:
             ino_print_log("InoOpenaiChatCompletions", "", e)
+            cls._bump_failure()
             return io.NodeOutput(False, "", "", str(e))
 
 

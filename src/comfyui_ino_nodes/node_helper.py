@@ -119,6 +119,42 @@ CLIP_TYPE= ["stable_diffusion", "stable_cascade", "sd3", "stable_audio", "mochi"
 
 PARENT_FOLDER_OPTIONS = ["input", "output", "temp"]
 
+
+class FailureInvalidatesCacheMixin:
+    """
+    Mixin for V3 nodes that forces cache invalidation after a failed run.
+
+    - On success, fingerprint stays stable -> ComfyUI reuses cached outputs.
+    - On failure, the subclass calls `cls._bump_failure()` in its `execute`,
+      which mutates `_failure_nonce`. The next call's fingerprint differs,
+      forcing re-execution even with identical inputs.
+
+    Each subclass gets its own `_failure_nonce` via Python's normal class
+    attribute shadowing, so nodes don't share state.
+    """
+
+    _failure_nonce = 0
+
+    @classmethod
+    def fingerprint_inputs(cls, **kwargs):
+        return f"{cls._failure_nonce}:{sorted(kwargs.items())}"
+
+    @classmethod
+    def _bump_failure(cls):
+        cls._failure_nonce += 1
+
+    @classmethod
+    def _track(cls, success):
+        """Pass-through that bumps the failure nonce when `success` is falsy.
+
+        Useful for inline use inside the final return, e.g.:
+            return io.NodeOutput(cls._track(result["success"]), ...)
+        """
+        if not success:
+            cls._failure_nonce += 1
+        return success
+
+
 def _load_csv_as_dict(is_config: bool, model_type: str) -> list:
     base_dir = Path(__file__).resolve().parent.parent.parent
     middle_dir = "configs" if is_config else "files"

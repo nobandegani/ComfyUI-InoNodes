@@ -7,9 +7,10 @@ import folder_paths
 from comfy_api.latest import io
 
 from .s3_helper import S3Helper, S3_EMPTY_CONFIG_STRING
+from ..node_helper import FailureInvalidatesCacheMixin
 
 
-class InoS3UploadString(io.ComfyNode):
+class InoS3UploadString(FailureInvalidatesCacheMixin, io.ComfyNode):
     @classmethod
     def define_schema(cls):
         return io.Schema(
@@ -39,10 +40,12 @@ class InoS3UploadString(io.ComfyNode):
     @classmethod
     async def execute(cls, enabled, string, save_as, s3_path_key, filename, s3_config=None, unique_file_name=True) -> io.NodeOutput:
         if not enabled:
+            cls._bump_failure()
             return io.NodeOutput(string, False, "", "", "")
 
         validate_s3_key = S3Helper.validate_s3_key(s3_path_key)
         if not validate_s3_key["success"]:
+            cls._bump_failure()
             return io.NodeOutput(string, False, validate_s3_key["msg"], "", "")
 
         temp_path = folder_paths.get_temp_directory()
@@ -59,6 +62,7 @@ class InoS3UploadString(io.ComfyNode):
             save_file = await InoFileHelper.save_string_as_file(string, full_path)
 
         if not save_file["success"]:
+            cls._bump_failure()
             return io.NodeOutput(string, False, save_file["msg"], "", "")
 
         s3_name = local_name if unique_file_name else Path(filename).stem
@@ -66,12 +70,14 @@ class InoS3UploadString(io.ComfyNode):
 
         s3_instance = S3Helper.get_instance(s3_config)
         if ino_is_err(s3_instance):
+            cls._bump_failure()
             return io.NodeOutput(string, False, s3_instance["msg"], "", "")
         s3_instance = s3_instance["instance"]
 
         s3_full_key = f"{s3_path_key.rstrip('/')}/{s3_file}"
         s3_result = await s3_instance.upload_file(s3_key=s3_full_key, local_file_path=full_path)
         if not s3_result["success"]:
+            cls._bump_failure()
             return io.NodeOutput(string, False, s3_result["msg"], "", "")
 
         return io.NodeOutput(string, True, "Success", s3_file, s3_full_key)

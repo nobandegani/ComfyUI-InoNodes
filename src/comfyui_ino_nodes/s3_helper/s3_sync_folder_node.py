@@ -5,10 +5,10 @@ from inopyutils import ino_is_err
 from comfy_api.latest import io
 
 from .s3_helper import S3Helper, S3_EMPTY_CONFIG_STRING
-from ..node_helper import PARENT_FOLDER_OPTIONS, resolve_comfy_path
+from ..node_helper import PARENT_FOLDER_OPTIONS, resolve_comfy_path, FailureInvalidatesCacheMixin
 
 
-class InoS3SyncFolder(io.ComfyNode):
+class InoS3SyncFolder(FailureInvalidatesCacheMixin, io.ComfyNode):
     @classmethod
     def define_schema(cls):
         return io.Schema(
@@ -42,12 +42,15 @@ class InoS3SyncFolder(io.ComfyNode):
     @classmethod
     async def execute(cls, execute, enabled, s3_key, parent_folder, folder, sync_local, s3_config=None, concurrency=5) -> io.NodeOutput:
         if not enabled:
+            cls._bump_failure()
             return io.NodeOutput(False, "not enabled", "", "", 0, 0, 0, 0)
         if not execute:
+            cls._bump_failure()
             return io.NodeOutput(False, "execute empty", "", "", 0, 0, 0, 0)
 
         validate_s3_key = S3Helper.validate_s3_key(s3_key)
         if not validate_s3_key["success"]:
+            cls._bump_failure()
             return io.NodeOutput(False, validate_s3_key["msg"], "", "", 0, 0, 0, 0)
 
         rel_path, abs_path = resolve_comfy_path(parent_folder, folder)
@@ -58,13 +61,14 @@ class InoS3SyncFolder(io.ComfyNode):
 
         s3_instance = S3Helper.get_instance(s3_config)
         if ino_is_err(s3_instance):
+            cls._bump_failure()
             return io.NodeOutput(False, s3_instance["msg"], "", "", 0, 0, 0, 0)
         s3_instance = s3_instance["instance"]
 
         s3_result = await s3_instance.sync_folder(s3_key=s3_key, local_folder_path=abs_path, sync_local=sync_local, concurrency=concurrency)
 
         return io.NodeOutput(
-            s3_result["success"], s3_result["msg"], rel_path, abs_path,
+            cls._track(s3_result["success"]), s3_result["msg"], rel_path, abs_path,
             s3_result.get("downloaded", 0), s3_result.get("uploaded", 0),
             s3_result.get("skipped_unchanged", 0), s3_result.get("failed", 0),
         )

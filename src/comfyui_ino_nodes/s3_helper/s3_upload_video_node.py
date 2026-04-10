@@ -7,9 +7,10 @@ import folder_paths
 from comfy_api.latest import io, Input, Types
 
 from .s3_helper import S3Helper, S3_EMPTY_CONFIG_STRING
+from ..node_helper import FailureInvalidatesCacheMixin
 
 
-class InoS3UploadVideo(io.ComfyNode):
+class InoS3UploadVideo(FailureInvalidatesCacheMixin, io.ComfyNode):
     @classmethod
     def define_schema(cls):
         return io.Schema(
@@ -40,10 +41,12 @@ class InoS3UploadVideo(io.ComfyNode):
     @classmethod
     async def execute(cls, enabled, video: Input.Video, s3_path_key, filename, s3_config=None, unique_file_name=True, video_format="mp4", video_codec="h264") -> io.NodeOutput:
         if not enabled:
+            cls._bump_failure()
             return io.NodeOutput(video, False, "", "", "")
 
         validate_s3_key = S3Helper.validate_s3_key(s3_path_key)
         if not validate_s3_key["success"]:
+            cls._bump_failure()
             return io.NodeOutput(video, False, validate_s3_key["msg"], "", "")
 
         temp_path = folder_paths.get_temp_directory()
@@ -62,6 +65,7 @@ class InoS3UploadVideo(io.ComfyNode):
 
         s3_instance = S3Helper.get_instance(s3_config)
         if ino_is_err(s3_instance):
+            cls._bump_failure()
             return io.NodeOutput(video, False, s3_instance["msg"], "", "")
         s3_instance = s3_instance["instance"]
 
