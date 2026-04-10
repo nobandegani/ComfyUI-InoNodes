@@ -25,10 +25,10 @@ class InoVllmRunSync(FailureInvalidatesCacheMixin, io.ComfyNode):
                 io.String.Input("image_url", default="", optional=True),
                 io.Float.Input("temperature", default=0.7, min=0.0, max=2.0, step=0.1, optional=True),
                 io.Int.Input("max_tokens", default=1024, min=1, max=128000, optional=True),
-                io.Float.Input("timeout", default=300.0, min=10.0, max=600.0, step=10.0, optional=True),
-                io.Int.Input("max_polls", default=24, min=1, max=100, optional=True),
+                io.Float.Input("timeout", default=600.0, min=10.0, max=600.0, step=10.0, optional=True),
+                io.Int.Input("max_polls", default=70, min=1, max=100, optional=True),
                 io.Float.Input("poll_delay", default=10.0, min=1.0, max=60.0, step=1.0, optional=True),
-                io.Int.Input("max_failed_retries", default=5, min=0, max=20, optional=True),
+                io.Int.Input("max_failed_retries", default=10, min=0, max=20, optional=True),
             ],
             outputs=[
                 io.Boolean.Output(display_name="success"),
