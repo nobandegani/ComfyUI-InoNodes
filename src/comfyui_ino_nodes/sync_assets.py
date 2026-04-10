@@ -51,12 +51,6 @@ class FileSyncer:
             "vibe-voice": [
                 "comfyui/models/vibevoice"
             ],
-            "qwen-llm-1": [
-                "comfyui/models/prompt_generator",
-            ],
-            "qwen-llm-2": [
-                "comfyui/models/LLM/Qwen-VL",
-            ]
         }
 
         self.s3_config = Config(
