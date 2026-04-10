@@ -86,6 +86,7 @@ class FileSyncer:
             region_name=self.s3_region,
             bucket_name=self.s3_bucket,
             config=self.s3_config,
+            retries=10,
         )
 
         self.local_comfy_path = os.getenv("SYNC_COMFY_ROOT", "/app")
@@ -140,7 +141,7 @@ class FileSyncer:
         syncfolder_res = await self.s3_client.sync_folder(
             s3_key=folder,
             local_folder_path=local_folder_path,
-            concurrency=10
+            concurrency=3
         )
         if ino_is_err(syncfolder_res):
             print(f"Syncing folder failed for {folder}: {syncfolder_res['msg']}")
@@ -151,7 +152,8 @@ class FileSyncer:
         if not self.enabled:
             print("[FileSyncer] Skipping sync — not configured.")
             return
-        await asyncio.gather(*[self._sync_one(folder) for folder in self.sync_folders])
+        for folder in self.sync_folders:
+            await self._sync_one(folder)
 
 async def main():
     print("Sync assets starting...")
