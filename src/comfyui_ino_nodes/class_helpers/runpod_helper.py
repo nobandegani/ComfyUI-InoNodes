@@ -51,7 +51,10 @@ class InoVllmRunSync(io.ComfyNode):
             return io.NodeOutput(False, "", "not enabled", 0, 0, "", "", "")
 
         try:
-            api_key = api_key if api_key else os.getenv('RUNPOD_API_KEY', '')
+            api_key = api_key if api_key else os.getenv('RUNPOD_LLM_API', '')
+            url = url if url else os.getenv('RUNPOD_LLM_URL', '')
+            model = model if model else os.getenv('RUNPOD_LLM_MODEL', '')
+
             image = image_url if image_url else None
 
             response = await InoRunpodHelper.serverless_vllm_runsync(
