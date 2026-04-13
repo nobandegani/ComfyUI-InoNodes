@@ -243,6 +243,68 @@ class InoImageResizeByLongerSideAndCropV2(io.ComfyNode):
         return io.NodeOutput(cropped_image[0])
 
 
+class InoResizeCropImage(io.ComfyNode):
+    @classmethod
+    def define_schema(cls):
+        return io.Schema(
+            node_id="InoResizeCropImage",
+            display_name="Ino Resize Crop Image",
+            category="InoImageHelper",
+            description="Resizes an image to cover the target width/height, then crops to the exact size at the selected position.",
+            inputs=[
+                io.Image.Input("image"),
+                io.Int.Input("width", default=512, min=1, max=MAX_RESOLUTION, step=1),
+                io.Int.Input("height", default=512, min=1, max=MAX_RESOLUTION, step=1),
+                io.Combo.Input("crop_position", options=[
+                    "top-left", "top-center", "top-right",
+                    "center-left", "center", "center-right",
+                    "bottom-left", "bottom-center", "bottom-right",
+                ], default="center"),
+                io.Combo.Input("interpolation", options=["lanczos", "bicubic", "bilinear", "area", "nearest-exact"], default="lanczos"),
+            ],
+            outputs=[
+                io.Image.Output(display_name="image"),
+            ],
+        )
+
+    @classmethod
+    def execute(cls, image, width, height, crop_position, interpolation) -> io.NodeOutput:
+        from comfy.utils import common_upscale
+
+        target_w = int(width)
+        target_h = int(height)
+        src_h = int(image.shape[1])
+        src_w = int(image.shape[2])
+
+        scale = max(target_w / src_w, target_h / src_h)
+        resize_w = max(target_w, int(round(src_w * scale)))
+        resize_h = max(target_h, int(round(src_h * scale)))
+
+        img = image.movedim(-1, 1)
+        img = common_upscale(img, resize_w, resize_h, interpolation, "disabled")
+        img = img.movedim(1, -1)
+
+        canvas_h = int(img.shape[1])
+        canvas_w = int(img.shape[2])
+
+        if "left" in crop_position:
+            x = 0
+        elif "right" in crop_position:
+            x = max(0, canvas_w - target_w)
+        else:
+            x = max(0, (canvas_w - target_w) // 2)
+
+        if "top" in crop_position:
+            y = 0
+        elif "bottom" in crop_position:
+            y = max(0, canvas_h - target_h)
+        else:
+            y = max(0, (canvas_h - target_h) // 2)
+
+        cropped = img[:, y:y + target_h, x:x + target_w, :]
+        return io.NodeOutput(cropped)
+
+
 class InoLoadImagesFromFolder(io.ComfyNode):
     @classmethod
     def define_schema(cls):
@@ -732,6 +794,7 @@ LOCAL_NODE_CLASS = {
     "InoSaveImages": InoSaveImages,
     "InoImageResizeByLongerSideV1": InoImageResizeByLongerSideV1,
     "InoImageResizeByLongerSideAndCropV2": InoImageResizeByLongerSideAndCropV2,
+    "InoResizeCropImage": InoResizeCropImage,
     "InoLoadImagesFromFolder": InoLoadImagesFromFolder,
     "InoOnImageListCompleted": InoOnImageListCompleted,
     "InoCropImageByBox": InoCropImageByBox,
@@ -748,6 +811,7 @@ LOCAL_NODE_NAME = {
     "InoSaveImages": "Ino Save Images",
     "InoImageResizeByLongerSideV1": "Ino Image Resize By Longer Side V1",
     "InoImageResizeByLongerSideAndCropV2": "Ino Image Resize By Longer Side And Crop V2",
+    "InoResizeCropImage": "Ino Resize Crop Image",
     "InoLoadImagesFromFolder": "Ino Load Images From Folder",
     "InoOnImageListCompleted": "Ino On Image List Completed",
     "InoCropImageByBox": "Ino Crop Image By Box",
