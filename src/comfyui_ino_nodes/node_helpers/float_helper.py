@@ -60,11 +60,49 @@ class InoCompareFloat(io.ComfyNode):
         }
         return io.NodeOutput(ops[compare])
 
+class InoMathFloat(io.ComfyNode):
+    @classmethod
+    def define_schema(cls):
+        return io.Schema(
+            node_id="InoMathFloat",
+            display_name="Ino Math Float",
+            category="InoFloatHelper",
+            description="Performs a math operation on two floats: add, subtract, multiply, divide, modulo, power.",
+            inputs=[
+                io.Float.Input("float_a", default=0.0),
+                io.Float.Input("float_b", default=0.0),
+                io.Combo.Input("operation", options=["add", "subtract", "multiply", "divide", "modulo", "power"]),
+            ],
+            outputs=[
+                io.Float.Output(display_name="float"),
+                io.Int.Output(display_name="int"),
+            ],
+        )
+
+    @classmethod
+    def execute(cls, float_a, float_b, operation) -> io.NodeOutput:
+        if operation == "add":
+            r = float_a + float_b
+        elif operation == "subtract":
+            r = float_a - float_b
+        elif operation == "multiply":
+            r = float_a * float_b
+        elif operation == "divide":
+            r = float_a / float_b if float_b != 0 else 0.0
+        elif operation == "modulo":
+            r = math.fmod(float_a, float_b) if float_b != 0 else 0.0
+        else:
+            r = float_a ** float_b
+        return io.NodeOutput(float(r), int(r))
+
+
 LOCAL_NODE_CLASS = {
     "InoFloatToInt": InoFloatToInt,
     "InoCompareFloat": InoCompareFloat,
+    "InoMathFloat": InoMathFloat,
 }
 LOCAL_NODE_NAME = {
     "InoFloatToInt": "Ino Float To Int",
     "InoCompareFloat": "Ino Compare Float",
+    "InoMathFloat": "Ino Math Float",
 }
