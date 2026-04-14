@@ -42,7 +42,6 @@ class InoOpenaiResponses(FailureInvalidatesCacheMixin, io.ComfyNode):
                       openai_api_key="", timeout=300, max_retries=3, model="gpt-5") -> io.NodeOutput:
         if not enabled:
             ino_print_log("InoOpenaiResponses", "Node is disabled")
-            cls._bump_failure()
             return io.NodeOutput(False, "", "not enabled", "", "", "")
 
         try:
@@ -106,7 +105,6 @@ class InoOpenaiChatCompletions(FailureInvalidatesCacheMixin, io.ComfyNode):
                       model="gpt-5", system_prompt="", image_url="", temperature=0.7, max_tokens=1024) -> io.NodeOutput:
         if not enabled:
             ino_print_log("InoOpenaiChatCompletions", "Node is disabled")
-            cls._bump_failure()
             return io.NodeOutput(False, "", "", "not enabled")
 
         try:

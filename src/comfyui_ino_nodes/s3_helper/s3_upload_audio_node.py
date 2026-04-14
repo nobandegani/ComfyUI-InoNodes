@@ -39,12 +39,10 @@ class InoS3UploadAudio(FailureInvalidatesCacheMixin, io.ComfyNode):
     @classmethod
     async def execute(cls, enabled, audio, s3_path_key, filename, s3_config=None, unique_file_name=True) -> io.NodeOutput:
         if not enabled:
-            cls._bump_failure()
             return io.NodeOutput(audio, False, "", "", "")
 
         validate_s3_key = S3Helper.validate_s3_key(s3_path_key)
         if not validate_s3_key["success"]:
-            cls._bump_failure()
             return io.NodeOutput(audio, False, validate_s3_key["msg"], "", "")
 
         temp_path = folder_paths.get_temp_directory()

@@ -41,12 +41,10 @@ class InoS3UploadVideo(FailureInvalidatesCacheMixin, io.ComfyNode):
     @classmethod
     async def execute(cls, enabled, video: Input.Video, s3_path_key, filename, s3_config=None, unique_file_name=True, video_format="mp4", video_codec="h264") -> io.NodeOutput:
         if not enabled:
-            cls._bump_failure()
             return io.NodeOutput(video, False, "", "", "")
 
         validate_s3_key = S3Helper.validate_s3_key(s3_path_key)
         if not validate_s3_key["success"]:
-            cls._bump_failure()
             return io.NodeOutput(video, False, validate_s3_key["msg"], "", "")
 
         temp_path = folder_paths.get_temp_directory()
@@ -72,4 +70,4 @@ class InoS3UploadVideo(FailureInvalidatesCacheMixin, io.ComfyNode):
         s3_full_key = f"{s3_path_key.rstrip('/')}/{s3_file}"
         s3_result = await s3_instance.upload_file(s3_key=s3_full_key, local_file_path=full_path)
 
-        return io.NodeOutput(video, s3_result["success"], s3_result["msg"], s3_file, s3_full_key)
+        return io.NodeOutput(video, cls._track(s3_result["success"]), s3_result["msg"], s3_file, s3_full_key)

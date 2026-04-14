@@ -44,16 +44,13 @@ class InoS3UploadImage(FailureInvalidatesCacheMixin, io.ComfyNode):
     @classmethod
     async def execute(cls, enabled, image, s3_path_key, filename, s3_config=None, compress_level=4, unique_file_name=True) -> io.NodeOutput:
         if not enabled:
-            cls._bump_failure()
             return io.NodeOutput(image, False, "", "", "")
 
         if image.shape[0] > 1:
-            cls._bump_failure()
             return io.NodeOutput(image, False, "Only one image supported, received batch of " + str(image.shape[0]), "", "")
 
         validate_s3_key = S3Helper.validate_s3_key(s3_path_key)
         if not validate_s3_key["success"]:
-            cls._bump_failure()
             return io.NodeOutput(image, False, validate_s3_key["msg"], "", "")
 
         temp_path = folder_paths.get_temp_directory()

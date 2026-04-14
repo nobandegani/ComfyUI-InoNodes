@@ -255,7 +255,6 @@ class InoHttpDownloadModel(FailureInvalidatesCacheMixin, io.ComfyNode):
     async def execute(cls, enabled, model_config, model_type="", model_subfolder="", url="") -> io.NodeOutput:
         if not enabled:
             ino_print_log("InoHttpDownloadModel", "Attempt to run but disabled")
-            cls._bump_failure()
             return io.NodeOutput(False, "", "", "", "")
 
         try:
@@ -327,7 +326,6 @@ class InoS3DownloadModel(FailureInvalidatesCacheMixin, io.ComfyNode):
     async def execute(cls, enabled, model_config, model_type="", model_subfolder="", s3_key="", s3_config="{}") -> io.NodeOutput:
         if not enabled:
             ino_print_log("InoS3DownloadModel", "Attempt to run but disabled")
-            cls._bump_failure()
             return io.NodeOutput(False, "", "", "", "")
 
         try:
@@ -355,7 +353,6 @@ class InoS3DownloadModel(FailureInvalidatesCacheMixin, io.ComfyNode):
             validate_s3_key = S3Helper.validate_s3_key(s3_key)
             if not validate_s3_key["success"]:
                 ino_print_log("InoS3DownloadModel", validate_s3_key["msg"])
-                cls._bump_failure()
                 return io.NodeOutput(False, validate_s3_key["msg"], "", "", "")
 
             model_path.parent.mkdir(parents=True, exist_ok=True)
@@ -410,7 +407,6 @@ class InoHuggingFaceDownloadModel(FailureInvalidatesCacheMixin, io.ComfyNode):
     async def execute(cls, enabled, model_config, model_type="", model_subfolder="", repo_id="", filename="", subfolder="", token="", repo_type="", revision="", ignore_repo_dir=False) -> io.NodeOutput:
         if not enabled:
             ino_print_log("InoHuggingFaceDownloadModel", "Attempt to run but disabled")
-            cls._bump_failure()
             return io.NodeOutput(False, "", "", "", "")
 
         try:
@@ -494,7 +490,6 @@ class InoHuggingFaceDownloadRepo(FailureInvalidatesCacheMixin, io.ComfyNode):
     async def execute(cls, enabled, model_config, model_type="", model_subfolder="", repo_id="", token="", repo_type="", revision="") -> io.NodeOutput:
         if not enabled:
             ino_print_log("InoHuggingFaceDownloadRepo", "Attempt to run but disabled")
-            cls._bump_failure()
             return io.NodeOutput(False, "", "", "", "")
 
         try:
@@ -572,7 +567,6 @@ class InoCivitaiDownloadModel(FailureInvalidatesCacheMixin, io.ComfyNode):
     async def execute(cls, enabled, model_config, model_type="", model_subfolder="", model_version="", token="", model_id="", file_id=0, chunk_size="8") -> io.NodeOutput:
         if not enabled:
             ino_print_log("InoCivitaiDownloadModel", "Attempt to run but disabled")
-            cls._bump_failure()
             return io.NodeOutput(False, "", "", "", "")
 
         try:
@@ -645,13 +639,11 @@ class InoHandleDownloadModel(FailureInvalidatesCacheMixin, io.ComfyNode):
     async def execute(cls, enabled, config) -> io.NodeOutput:
         if not enabled:
             ino_print_log("InoHandleDownloadModel", "Attempt to run but disabled")
-            cls._bump_failure()
             return io.NodeOutput(False, "not enabled", "", "", "")
 
         config_dict = InoJsonHelper.string_to_dict(config)
         if not config_dict["success"]:
             ino_print_log("InoHandleDownloadModel", "invalid config string")
-            cls._bump_failure()
             return io.NodeOutput(False, config_dict["msg"], "", "", "")
 
         config_dict = config_dict["data"]
@@ -665,7 +657,6 @@ class InoHandleDownloadModel(FailureInvalidatesCacheMixin, io.ComfyNode):
             loader = InoCivitaiDownloadModel()
         else:
             ino_print_log("InoHandleDownloadModel", "unknown host")
-            cls._bump_failure()
             return io.NodeOutput(False, "unknown host", "", "", "")
 
         result = await loader.execute(enabled=True, model_config=config)

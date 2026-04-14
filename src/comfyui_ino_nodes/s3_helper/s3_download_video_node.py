@@ -33,12 +33,10 @@ class InoS3DownloadVideo(FailureInvalidatesCacheMixin, io.ComfyNode):
     @classmethod
     async def execute(cls, enabled, s3_key, s3_config=None) -> io.NodeOutput:
         if not enabled:
-            cls._bump_failure()
             return io.NodeOutput(False, "not enabled", None)
 
         validate_s3_key = S3Helper.validate_s3_key(s3_key)
         if not validate_s3_key["success"]:
-            cls._bump_failure()
             return io.NodeOutput(False, validate_s3_key["msg"], None)
 
         temp_path = folder_paths.get_temp_directory()

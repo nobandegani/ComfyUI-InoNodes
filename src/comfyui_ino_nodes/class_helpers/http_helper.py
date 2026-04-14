@@ -37,7 +37,6 @@ class InoHttpCall(FailureInvalidatesCacheMixin, io.ComfyNode):
                       trust_env=False, allow_redirects=False, max_retries=10) -> io.NodeOutput:
         if not enabled:
             ino_print_log("InoHttpCall", "Attempt to run but disabled")
-            cls._bump_failure()
             return io.NodeOutput(False, 0, "Attempt to run but disabled", "")
 
         http_client = None
@@ -67,7 +66,6 @@ class InoHttpCall(FailureInvalidatesCacheMixin, io.ComfyNode):
             else:
                 await http_client.close()
                 ino_print_log("InoHttpCall", "Invalid request type", request_type)
-                cls._bump_failure()
                 return io.NodeOutput(False, 0, "Invalid request type", "")
 
             await http_client.close()

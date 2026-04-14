@@ -40,22 +40,18 @@ class InoS3VerifyFile(FailureInvalidatesCacheMixin, io.ComfyNode):
     @classmethod
     async def execute(cls, execute, enabled, s3_key, parent_folder, folder, filename, s3_config=None, use_md5=False, use_sha256=False) -> io.NodeOutput:
         if not enabled:
-            cls._bump_failure()
             return io.NodeOutput(False, "not enabled", "", "", False, False)
         if not execute:
-            cls._bump_failure()
             return io.NodeOutput(False, "execute empty", "", "", False, False)
 
         validate_s3_key = S3Helper.validate_s3_key(s3_key)
         if not validate_s3_key["success"]:
-            cls._bump_failure()
             return io.NodeOutput(False, validate_s3_key["msg"], "", "", False, False)
 
         rel_path, abs_path = resolve_comfy_path(parent_folder, folder, filename)
 
         validate_local_path = S3Helper.validate_local_path(Path(abs_path))
         if not validate_local_path["success"]:
-            cls._bump_failure()
             return io.NodeOutput(False, validate_local_path["msg"], rel_path, abs_path, False, False)
 
         s3_instance = S3Helper.get_instance(s3_config)

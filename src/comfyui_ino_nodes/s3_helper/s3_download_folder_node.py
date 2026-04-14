@@ -35,18 +35,15 @@ class InoS3DownloadFolder(FailureInvalidatesCacheMixin, io.ComfyNode):
     @classmethod
     async def execute(cls, enabled, s3_key, parent_folder, folder, s3_config=None, max_concurrent=5) -> io.NodeOutput:
         if not enabled:
-            cls._bump_failure()
             return io.NodeOutput(False, "not enabled", "", "")
 
         validate_s3_key = S3Helper.validate_s3_key(s3_key)
         if not validate_s3_key["success"]:
-            cls._bump_failure()
             return io.NodeOutput(False, validate_s3_key["msg"], "", "")
 
         rel_path, abs_path = resolve_comfy_path(parent_folder, folder)
 
         if Path(abs_path).is_file():
-            cls._bump_failure()
             return io.NodeOutput(False, "Save path is a file", "", "")
 
         if not Path(abs_path).is_dir():

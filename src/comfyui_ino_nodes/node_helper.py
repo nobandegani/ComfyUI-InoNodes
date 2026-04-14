@@ -3,6 +3,7 @@ import os
 import csv
 import sys
 import collections
+import hashlib
 import threading
 
 
@@ -157,7 +158,8 @@ class FailureInvalidatesCacheMixin:
 
     @classmethod
     def fingerprint_inputs(cls, **kwargs):
-        return f"{cls._failure_state[0]}:{sorted(kwargs.items())}"
+        payload = repr((cls._failure_state[0], sorted(kwargs.items())))
+        return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
     @classmethod
     def _bump_failure(cls):

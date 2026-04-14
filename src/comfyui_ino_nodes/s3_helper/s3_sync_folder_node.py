@@ -42,15 +42,12 @@ class InoS3SyncFolder(FailureInvalidatesCacheMixin, io.ComfyNode):
     @classmethod
     async def execute(cls, execute, enabled, s3_key, parent_folder, folder, sync_local, s3_config=None, concurrency=5) -> io.NodeOutput:
         if not enabled:
-            cls._bump_failure()
             return io.NodeOutput(False, "not enabled", "", "", 0, 0, 0, 0)
         if not execute:
-            cls._bump_failure()
             return io.NodeOutput(False, "execute empty", "", "", 0, 0, 0, 0)
 
         validate_s3_key = S3Helper.validate_s3_key(s3_key)
         if not validate_s3_key["success"]:
-            cls._bump_failure()
             return io.NodeOutput(False, validate_s3_key["msg"], "", "", 0, 0, 0, 0)
 
         rel_path, abs_path = resolve_comfy_path(parent_folder, folder)

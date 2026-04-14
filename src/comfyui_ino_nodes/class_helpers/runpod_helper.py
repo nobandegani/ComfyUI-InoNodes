@@ -48,7 +48,6 @@ class InoVllmRunSync(FailureInvalidatesCacheMixin, io.ComfyNode):
                       timeout=300.0, max_polls=24, poll_delay=10.0, max_failed_retries=5) -> io.NodeOutput:
         if not enabled:
             ino_print_log("InoVllmRunSync", "Node is disabled")
-            cls._bump_failure()
             return io.NodeOutput(False, "", "not enabled", 0, 0, "", "", "")
 
         try:

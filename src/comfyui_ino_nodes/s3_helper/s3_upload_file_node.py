@@ -38,22 +38,18 @@ class InoS3UploadFile(FailureInvalidatesCacheMixin, io.ComfyNode):
     @classmethod
     async def execute(cls, execute, enabled, s3_path_key, parent_folder, folder, filename, delete_local, s3_config=None) -> io.NodeOutput:
         if not enabled:
-            cls._bump_failure()
             return io.NodeOutput(False, "not enabled", "")
         if not execute:
-            cls._bump_failure()
             return io.NodeOutput(False, "execute empty", "")
 
         validate_s3_key = S3Helper.validate_s3_key(s3_path_key)
         if not validate_s3_key["success"]:
-            cls._bump_failure()
             return io.NodeOutput(False, validate_s3_key["msg"], "")
 
         _, abs_path = resolve_comfy_path(parent_folder, folder, filename)
 
         validate_local_path = S3Helper.validate_local_path(Path(abs_path))
         if not validate_local_path["success"]:
-            cls._bump_failure()
             return io.NodeOutput(False, validate_local_path["msg"], "")
 
         local_ext = Path(filename).suffix
