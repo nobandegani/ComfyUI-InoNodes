@@ -3,7 +3,6 @@ import os
 import csv
 import sys
 import collections
-import hashlib
 import threading
 
 
@@ -119,62 +118,6 @@ UNET_WEIGHT_DTYPE= ["default", "fp8_e4m3fn", "fp8_e4m3fn_fast", "fp8_e5m2"]
 CLIP_TYPE= ["stable_diffusion", "stable_cascade", "sd3", "stable_audio", "mochi", "ltxv", "pixart", "cosmos", "lumina2", "wan", "hidream", "chroma", "ace", "omnigen2", "qwen_image", "hunyuan_image", "flux2", "ovis"]
 
 PARENT_FOLDER_OPTIONS = ["input", "output", "temp"]
-
-
-class FailureInvalidatesCacheMixin:
-    """
-    Mixin for V3 nodes that forces cache invalidation after a failed run.
-
-    - On success, fingerprint stays stable -> ComfyUI reuses cached outputs.
-    - On failure, the subclass calls `cls._bump_failure()` (or uses
-      `cls._track(success)` inline), mutating the failure state. The next
-      call's fingerprint differs, forcing re-execution even with identical
-      inputs.
-
-    Implementation note: ComfyUI V3 clones and then *locks* node classes at
-    execution time, which blocks `cls.<attr> = value` via a custom metaclass
-    `__setattr__`. To work around this we keep the nonce in a **mutable
-    container** (a one-element list) and mutate it in place via
-    `cls._failure_state[0] += 1`, which does not trigger class-level
-    `__setattr__`.
-
-    Each concrete subclass gets its own `_failure_state` list via
-    `__init_subclass__`, so nodes do not share nonces with each other.
-    ComfyUI's shallow class clones inherit the list *by reference*, so
-    mutations on the locked clone are visible to the original class used by
-    `fingerprint_inputs`.
-    """
-
-    def __init_subclass__(cls, **kwargs):
-        super().__init_subclass__(**kwargs)
-        # Give each concrete subclass its own mutable nonce container.
-        # Guard: ComfyUI re-creates classes via `type(name, bases, dict)` for
-        # cloning and locking. Each such creation re-triggers this hook, but
-        # the new class already inherits `_failure_state` (by reference)
-        # through its shallow-copied __dict__. Assigning in that case would
-        # raise on locked classes, so we only initialize the first time.
-        if "_failure_state" not in cls.__dict__:
-            cls._failure_state = [0]
-
-    @classmethod
-    def fingerprint_inputs(cls, **kwargs):
-        payload = repr((cls._failure_state[0], sorted(kwargs.items())))
-        return hashlib.sha256(payload.encode("utf-8")).hexdigest()
-
-    @classmethod
-    def _bump_failure(cls):
-        cls._failure_state[0] += 1
-
-    @classmethod
-    def _track(cls, success):
-        """Pass-through that bumps the failure nonce when `success` is falsy.
-
-        Useful for inline use inside the final return, e.g.:
-            return io.NodeOutput(cls._track(result["success"]), ...)
-        """
-        if not success:
-            cls._failure_state[0] += 1
-        return success
 
 
 def _load_csv_as_dict(is_config: bool, model_type: str) -> list:

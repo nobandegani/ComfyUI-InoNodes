@@ -5,10 +5,10 @@ from inopyutils import ino_is_err
 from comfy_api.latest import io
 
 from .s3_helper import S3Helper, S3_EMPTY_CONFIG_STRING
-from ..node_helper import PARENT_FOLDER_OPTIONS, resolve_comfy_path, FailureInvalidatesCacheMixin
+from ..node_helper import PARENT_FOLDER_OPTIONS, resolve_comfy_path
 
 
-class InoS3DownloadFile(FailureInvalidatesCacheMixin, io.ComfyNode):
+class InoS3DownloadFile(io.ComfyNode):
     @classmethod
     def define_schema(cls):
         return io.Schema(
@@ -48,9 +48,8 @@ class InoS3DownloadFile(FailureInvalidatesCacheMixin, io.ComfyNode):
 
         s3_instance = S3Helper.get_instance(s3_config)
         if ino_is_err(s3_instance):
-            cls._bump_failure()
             return io.NodeOutput(False, s3_instance["msg"], "", "")
         s3_instance = s3_instance["instance"]
 
         s3_result = await s3_instance.download_file(s3_key=s3_key, local_file_path=abs_path)
-        return io.NodeOutput(cls._track(s3_result["success"]), s3_result["msg"], rel_path, abs_path)
+        return io.NodeOutput(s3_result["success"], s3_result["msg"], rel_path, abs_path)

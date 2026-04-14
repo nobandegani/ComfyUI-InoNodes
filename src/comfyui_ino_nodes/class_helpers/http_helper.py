@@ -2,10 +2,10 @@ from inopyutils import InoJsonHelper, InoHttpHelper
 
 from comfy_api.latest import io
 
-from ..node_helper import ino_print_log, FailureInvalidatesCacheMixin
+from ..node_helper import ino_print_log
 
 
-class InoHttpCall(FailureInvalidatesCacheMixin, io.ComfyNode):
+class InoHttpCall(io.ComfyNode):
     @classmethod
     def define_schema(cls):
         return io.Schema(
@@ -71,7 +71,6 @@ class InoHttpCall(FailureInvalidatesCacheMixin, io.ComfyNode):
             await http_client.close()
             if not resp["success"]:
                 ino_print_log("InoHttpCall", resp["msg"], resp)
-                cls._bump_failure()
                 return io.NodeOutput(False, 0, resp["msg"], str(resp))
 
             ino_print_log("InoHttpCall", "Success")
@@ -80,7 +79,6 @@ class InoHttpCall(FailureInvalidatesCacheMixin, io.ComfyNode):
             if http_client:
                 await http_client.close()
             ino_print_log("InoHttpCall", "", e)
-            cls._bump_failure()
             return io.NodeOutput(False, 0, str(e), "")
 
 

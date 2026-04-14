@@ -4,10 +4,10 @@ from inopyutils import InoRunpodHelper, ino_is_err
 
 from comfy_api.latest import io
 
-from ..node_helper import ino_print_log, FailureInvalidatesCacheMixin
+from ..node_helper import ino_print_log
 
 
-class InoVllmRunSync(FailureInvalidatesCacheMixin, io.ComfyNode):
+class InoVllmRunSync(io.ComfyNode):
     @classmethod
     def define_schema(cls):
         return io.Schema(
@@ -66,7 +66,6 @@ class InoVllmRunSync(FailureInvalidatesCacheMixin, io.ComfyNode):
             )
 
             if ino_is_err(response):
-                cls._bump_failure()
                 return io.NodeOutput(False, "", response.get("msg", "unknown error"), 0, 0, "", "", "")
 
             return io.NodeOutput(
@@ -81,7 +80,6 @@ class InoVllmRunSync(FailureInvalidatesCacheMixin, io.ComfyNode):
             )
         except Exception as e:
             ino_print_log("InoVllmRunSync", "", e)
-            cls._bump_failure()
             return io.NodeOutput(False, "", f"response failed: {e}", 0, 0, "", "", "")
 
 

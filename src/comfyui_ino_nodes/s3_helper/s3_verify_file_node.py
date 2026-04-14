@@ -5,10 +5,10 @@ from inopyutils import ino_is_err
 from comfy_api.latest import io
 
 from .s3_helper import S3Helper, S3_EMPTY_CONFIG_STRING
-from ..node_helper import PARENT_FOLDER_OPTIONS, resolve_comfy_path, FailureInvalidatesCacheMixin
+from ..node_helper import PARENT_FOLDER_OPTIONS, resolve_comfy_path
 
 
-class InoS3VerifyFile(FailureInvalidatesCacheMixin, io.ComfyNode):
+class InoS3VerifyFile(io.ComfyNode):
     @classmethod
     def define_schema(cls):
         return io.Schema(
@@ -56,13 +56,12 @@ class InoS3VerifyFile(FailureInvalidatesCacheMixin, io.ComfyNode):
 
         s3_instance = S3Helper.get_instance(s3_config)
         if ino_is_err(s3_instance):
-            cls._bump_failure()
             return io.NodeOutput(False, s3_instance["msg"], rel_path, abs_path, False, False)
         s3_instance = s3_instance["instance"]
 
         s3_result = await s3_instance.verify_file(local_file_path=abs_path, s3_key=s3_key, use_md5=use_md5, use_sha256=use_sha256)
 
         return io.NodeOutput(
-            cls._track(s3_result["success"]), s3_result["msg"], rel_path, abs_path,
+            s3_result["success"], s3_result["msg"], rel_path, abs_path,
             s3_result.get("exists_remote", False), s3_result.get("sizes_match", False),
         )
