@@ -1,3 +1,4 @@
+import asyncio
 from pathlib import Path
 
 from inopyutils import InoFileHelper
@@ -374,7 +375,7 @@ class InoGetLastFile(io.ComfyNode):
             return io.NodeOutput(False, "Node is disabled", "", "")
 
         _, abs_path = resolve_comfy_path(parent_folder, folder)
-        res = InoFileHelper.get_last_file(path=Path(abs_path))
+        res = await asyncio.to_thread(InoFileHelper.get_last_file, path=Path(abs_path))
         if not res["success"]:
             return io.NodeOutput(False, res["msg"], "", "")
         return io.NodeOutput(True, res["msg"], res.get("file_name", ""), res.get("file_path", ""))

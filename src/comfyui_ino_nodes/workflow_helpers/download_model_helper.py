@@ -1,3 +1,4 @@
+import asyncio
 import os
 import shutil
 
@@ -10,7 +11,7 @@ import folder_paths
 from comfy_api.latest import io
 
 from ..s3_helper.s3_helper import S3Helper, S3_EMPTY_CONFIG_STRING
-from ..node_helper import ino_print_log, MODEL_TYPES, FailureInvalidatesCacheMixin
+from ..node_helper import ino_print_log, MODEL_TYPES
 from ..node_helper import get_list_from_csv, get_model_from_csv
 
 
@@ -227,7 +228,7 @@ class InoGetLoraDownloadConfig(io.ComfyNode):
         return io.NodeOutput(data)
 
 
-class InoHttpDownloadModel(FailureInvalidatesCacheMixin, io.ComfyNode):
+class InoHttpDownloadModel(io.ComfyNode):
     @classmethod
     def define_schema(cls):
         return io.Schema(
@@ -286,18 +287,16 @@ class InoHttpDownloadModel(FailureInvalidatesCacheMixin, io.ComfyNode):
                 allow_redirects=True, mkdirs=True, connection=6
             )
             if ino_is_err(http_result):
-                cls._bump_failure()
                 return io.NodeOutput(False, "failed to download", model_type, str(model_path), str(rel_path))
 
             ino_print_log("InoHttpDownloadModel", "file downloaded successfully")
-            return io.NodeOutput(cls._track(http_result["success"]), http_result["msg"], model_type, str(model_path), str(rel_path))
+            return io.NodeOutput(http_result["success"], http_result["msg"], model_type, str(model_path), str(rel_path))
         except Exception as e:
             ino_print_log("InoHttpDownloadModel", "", e)
-            cls._bump_failure()
             return io.NodeOutput(False, f"Error: {e}", "", "", "")
 
 
-class InoS3DownloadModel(FailureInvalidatesCacheMixin, io.ComfyNode):
+class InoS3DownloadModel(io.ComfyNode):
     @classmethod
     def define_schema(cls):
         return io.Schema(
@@ -359,21 +358,19 @@ class InoS3DownloadModel(FailureInvalidatesCacheMixin, io.ComfyNode):
 
             s3_instance = S3Helper.get_instance(s3_config)
             if ino_is_err(s3_instance):
-                cls._bump_failure()
                 return io.NodeOutput(False, s3_instance["msg"], "", "", "")
             s3_instance = s3_instance["instance"]
 
             s3_result = await s3_instance.download_file(s3_key=s3_key, local_file_path=model_path)
 
             ino_print_log("InoS3DownloadModel", "file downloaded successfully")
-            return io.NodeOutput(cls._track(s3_result["success"]), s3_result["msg"], model_type, str(model_path), str(rel_path))
+            return io.NodeOutput(s3_result["success"], s3_result["msg"], model_type, str(model_path), str(rel_path))
         except Exception as e:
             ino_print_log("InoS3DownloadModel", "", e)
-            cls._bump_failure()
             return io.NodeOutput(False, f"Error: {e}", "", "", "")
 
 
-class InoHuggingFaceDownloadModel(FailureInvalidatesCacheMixin, io.ComfyNode):
+class InoHuggingFaceDownloadModel(io.ComfyNode):
     @classmethod
     def define_schema(cls):
         return io.Schema(
@@ -442,24 +439,22 @@ class InoHuggingFaceDownloadModel(FailureInvalidatesCacheMixin, io.ComfyNode):
             args["local_dir"] = model_path
         except Exception as e:
             ino_print_log("InoHuggingFaceDownloadModel", "", e)
-            cls._bump_failure()
             return io.NodeOutput(False, f"Error: {e}", "", "", "")
 
         try:
-            result = hf_hub_download(repo_id, filename, **args)
+            result = await asyncio.to_thread(hf_hub_download, repo_id, filename, **args)
             if ignore_repo_dir:
-                shutil.move(result, model_path)
+                await asyncio.to_thread(shutil.move, result, model_path)
                 result = f"{model_path}/{Path(result).name}"
             rel_path = Path(result).relative_to(model_path_base)
             ino_print_log("InoHuggingFaceDownloadModel", "file downloaded successfully")
             return io.NodeOutput(True, "Successful", model_type, str(result), str(rel_path))
         except Exception as e:
             ino_print_log("InoHuggingFaceDownloadModel", "", e)
-            cls._bump_failure()
             return io.NodeOutput(False, f"Error: {e}", "", "", "")
 
 
-class InoHuggingFaceDownloadRepo(FailureInvalidatesCacheMixin, io.ComfyNode):
+class InoHuggingFaceDownloadRepo(io.ComfyNode):
     @classmethod
     def define_schema(cls):
         return io.Schema(
@@ -521,21 +516,19 @@ class InoHuggingFaceDownloadRepo(FailureInvalidatesCacheMixin, io.ComfyNode):
             args["local_dir"] = model_path
         except Exception as e:
             ino_print_log("InoHuggingFaceDownloadRepo", "", e)
-            cls._bump_failure()
             return io.NodeOutput(False, f"Error: {e}", "", "", "")
 
         try:
-            result = snapshot_download(repo_id, **args)
+            result = await asyncio.to_thread(snapshot_download, repo_id, **args)
             rel_path = Path(result).relative_to(model_path_base)
             ino_print_log("InoHuggingFaceDownloadRepo", "file downloaded successfully")
             return io.NodeOutput(True, "Successful", model_type, str(result), str(rel_path))
         except Exception as e:
             ino_print_log("InoHuggingFaceDownloadRepo", "", e)
-            cls._bump_failure()
             return io.NodeOutput(False, f"Error: {e}", "", "", "")
 
 
-class InoCivitaiDownloadModel(FailureInvalidatesCacheMixin, io.ComfyNode):
+class InoCivitaiDownloadModel(io.ComfyNode):
     @classmethod
     def define_schema(cls):
         return io.Schema(
@@ -599,7 +592,6 @@ class InoCivitaiDownloadModel(FailureInvalidatesCacheMixin, io.ComfyNode):
                 file_id=file_id,
             )
             if ino_is_err(download_model):
-                cls._bump_failure()
                 return io.NodeOutput(False, download_model["msg"], model_type, "", "")
 
             await civit_client.close()
@@ -610,11 +602,10 @@ class InoCivitaiDownloadModel(FailureInvalidatesCacheMixin, io.ComfyNode):
             return io.NodeOutput(True, download_model["msg"], model_type, str(abs_path), str(rel_path))
         except Exception as e:
             ino_print_log("InoCivitaiDownloadModel", "", e)
-            cls._bump_failure()
             return io.NodeOutput(False, str(e), "", "", "")
 
 
-class InoHandleDownloadModel(FailureInvalidatesCacheMixin, io.ComfyNode):
+class InoHandleDownloadModel(io.ComfyNode):
     @classmethod
     def define_schema(cls):
         return io.Schema(
@@ -661,12 +652,6 @@ class InoHandleDownloadModel(FailureInvalidatesCacheMixin, io.ComfyNode):
 
         result = await loader.execute(enabled=True, model_config=config)
         ino_print_log("InoHandleDownloadModel", "delegated to loader completed")
-        # Propagate failure to the outer class's cache-invalidation nonce
-        try:
-            inner_success = result.args[0]
-        except (AttributeError, IndexError):
-            inner_success = False
-        cls._track(inner_success)
         return result
 
 

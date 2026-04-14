@@ -1,3 +1,4 @@
+import asyncio
 import base64
 import io as std_io
 import torch
@@ -79,7 +80,7 @@ class InoSaveImages(io.ComfyNode):
         )
 
     @classmethod
-    def execute(cls, images, parent_folder, folder, filename_prefix) -> io.NodeOutput:
+    async def execute(cls, images, parent_folder, folder, filename_prefix) -> io.NodeOutput:
         time_now = datetime.now(timezone.utc).isoformat()
 
         rel_path, abs_path = resolve_comfy_path(parent_folder, folder)
@@ -96,20 +97,23 @@ class InoSaveImages(io.ComfyNode):
         from comfy.cli_args import args
         from PIL.PngImagePlugin import PngInfo
 
-        results = []
-        for (batch_number, image) in enumerate(images):
-            i = 255. * image.cpu().numpy()
-            img = PILImage.fromarray(np.clip(i, 0, 255).astype(np.uint8))
-            metadata = None
-            if not args.disable_metadata:
-                metadata = PngInfo()
+        images_cpu = [img.cpu().numpy() for img in images]
+        include_metadata = not args.disable_metadata
 
-            filename_with_batch_num = filename.replace("%batch_num%", str(batch_number))
-            file = f"{filename_with_batch_num}_{counter:05}_.png"
-            full_path = os.path.join(full_output_folder, file)
-            img.save(full_path, pnginfo=metadata, compress_level=4)
-            results.append({"filename": file, "subfolder": subfolder, "type": parent_folder})
-            counter += 1
+        def _save_all():
+            saved = []
+            local_counter = counter
+            for batch_number, arr in enumerate(images_cpu):
+                pil_img = PILImage.fromarray(np.clip(255. * arr, 0, 255).astype(np.uint8))
+                metadata = PngInfo() if include_metadata else None
+                filename_with_batch_num = filename.replace("%batch_num%", str(batch_number))
+                file = f"{filename_with_batch_num}_{local_counter:05}_.png"
+                pil_img.save(os.path.join(full_output_folder, file), pnginfo=metadata, compress_level=4)
+                saved.append({"filename": file, "subfolder": subfolder, "type": parent_folder})
+                local_counter += 1
+            return saved
+
+        results = await asyncio.to_thread(_save_all)
 
         if len(results) == 0:
             return io.NodeOutput(False, "No images saved", rel_path, abs_path, 0, time_now)

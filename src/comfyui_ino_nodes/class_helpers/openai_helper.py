@@ -1,3 +1,4 @@
+import asyncio
 import os
 
 from inopyutils import InoJsonHelper, InoOpenAIHelper
@@ -5,10 +6,10 @@ from openai import OpenAI
 
 from comfy_api.latest import io
 
-from ..node_helper import ino_print_log, FailureInvalidatesCacheMixin
+from ..node_helper import ino_print_log
 
 
-class InoOpenaiResponses(FailureInvalidatesCacheMixin, io.ComfyNode):
+class InoOpenaiResponses(io.ComfyNode):
     @classmethod
     def define_schema(cls):
         return io.Schema(
@@ -60,7 +61,7 @@ class InoOpenaiResponses(FailureInvalidatesCacheMixin, io.ComfyNode):
                     }
                 ]
 
-            response = client.responses.create(model=model, input=response_input)
+            response = await asyncio.to_thread(client.responses.create, model=model, input=response_input)
 
             error_message = response.error.message if response.error else "none"
             response_output = InoJsonHelper.dict_to_string(response.output)["data"] if response.output else "empty"
@@ -69,11 +70,10 @@ class InoOpenaiResponses(FailureInvalidatesCacheMixin, io.ComfyNode):
             return io.NodeOutput(True, response.id, response.status, error_message, response_text, response_output)
         except Exception as e:
             ino_print_log("InoOpenaiResponses", "", e)
-            cls._bump_failure()
             return io.NodeOutput(False, "", "Openai response failed", str(e), "", "")
 
 
-class InoOpenaiChatCompletions(FailureInvalidatesCacheMixin, io.ComfyNode):
+class InoOpenaiChatCompletions(io.ComfyNode):
     @classmethod
     def define_schema(cls):
         return io.Schema(
@@ -124,11 +124,9 @@ class InoOpenaiChatCompletions(FailureInvalidatesCacheMixin, io.ComfyNode):
             else:
                 error_msg = result.get("message", "unknown error")
                 ino_print_log("InoOpenaiChatCompletions", "", error_msg)
-                cls._bump_failure()
                 return io.NodeOutput(False, "", "", error_msg)
         except Exception as e:
             ino_print_log("InoOpenaiChatCompletions", "", e)
-            cls._bump_failure()
             return io.NodeOutput(False, "", "", str(e))
 
 

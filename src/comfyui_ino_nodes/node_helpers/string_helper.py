@@ -1,3 +1,4 @@
+import asyncio
 import re
 import hashlib
 import base64
@@ -6,6 +7,12 @@ from pathlib import Path
 from comfy_api.latest import io
 
 from ..node_helper import PARENT_FOLDER_OPTIONS, resolve_comfy_path
+
+
+def _write_text_sync(abs_path, text):
+    Path(abs_path).parent.mkdir(parents=True, exist_ok=True)
+    with open(abs_path, "w", encoding="utf-8") as f:
+        f.write(text)
 
 
 class InoStringToggleCase(io.ComfyNode):
@@ -168,15 +175,13 @@ class InoSaveText(io.ComfyNode):
         )
 
     @classmethod
-    def execute(cls, enabled, text, parent_folder, folder, filename) -> io.NodeOutput:
+    async def execute(cls, enabled, text, parent_folder, folder, filename) -> io.NodeOutput:
         rel_path, abs_path = resolve_comfy_path(parent_folder, folder, filename)
 
         if not enabled:
             return io.NodeOutput(False, "not enabled", rel_path, abs_path)
         try:
-            Path(abs_path).parent.mkdir(parents=True, exist_ok=True)
-            with open(abs_path, "w", encoding="utf-8") as f:
-                f.write(text)
+            await asyncio.to_thread(_write_text_sync, abs_path, text)
             return io.NodeOutput(True, "saved", rel_path, abs_path)
         except Exception as e:
             return io.NodeOutput(False, str(e), rel_path, abs_path)

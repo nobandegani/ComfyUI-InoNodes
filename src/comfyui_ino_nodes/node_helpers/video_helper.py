@@ -1,3 +1,4 @@
+import asyncio
 import os
 import random
 import string
@@ -27,7 +28,7 @@ class InoPreviewVideo(io.ComfyNode):
         )
 
     @classmethod
-    def execute(cls, enabled, video: Input.Video, format="mp4", codec="h264") -> io.NodeOutput:
+    async def execute(cls, enabled, video: Input.Video, format="mp4", codec="h264") -> io.NodeOutput:
         if not enabled:
             return io.NodeOutput(ui=ui.PreviewVideo([]).as_dict())
 
@@ -37,7 +38,8 @@ class InoPreviewVideo(io.ComfyNode):
         )
 
         file = f"{filename}_{counter:05}_.{Types.VideoContainer.get_extension(format)}"
-        video.save_to(
+        await asyncio.to_thread(
+            video.save_to,
             os.path.join(full_output_folder, file),
             format=Types.VideoContainer(format),
             codec=Types.VideoCodec(codec),
