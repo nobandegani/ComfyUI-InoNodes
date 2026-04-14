@@ -111,6 +111,8 @@ class InoOpenaiChatCompletions(FailureInvalidatesCacheMixin, io.ComfyNode):
 
         try:
             api_key = openai_api_key if openai_api_key else os.getenv('OPENAI_TOKEN', '')
+            base_url = base_url if base_url else os.getenv('OPENAI_URL', '')
+            model = model if model else os.getenv('OPENAI_MODEL', '')
             image = image_url if image_url else None
 
             result = await InoOpenAIHelper.chat_completions(
