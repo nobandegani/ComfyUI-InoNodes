@@ -18,7 +18,6 @@ class InoS3SyncFolder(io.ComfyNode):
             description="Syncs a local folder with S3 bidirectionally (upload or download).",
             is_output_node=True,
             inputs=[
-                io.AnyType.Input("execute"),
                 io.Boolean.Input("enabled", default=True, label_off="OFF", label_on="ON"),
                 io.String.Input("s3_key", default=""),
                 io.Combo.Input("parent_folder", options=PARENT_FOLDER_OPTIONS),
@@ -40,11 +39,9 @@ class InoS3SyncFolder(io.ComfyNode):
         )
 
     @classmethod
-    async def execute(cls, execute, enabled, s3_key, parent_folder, folder, sync_local, s3_config=None, concurrency=5) -> io.NodeOutput:
+    async def execute(cls, enabled, s3_key, parent_folder, folder, sync_local, s3_config=None, concurrency=5) -> io.NodeOutput:
         if not enabled:
             return io.NodeOutput(False, "not enabled", "", "", 0, 0, 0, 0)
-        if not execute:
-            return io.NodeOutput(False, "execute empty", "", "", 0, 0, 0, 0)
 
         validate_s3_key = S3Helper.validate_s3_key(s3_key)
         if not validate_s3_key["success"]:

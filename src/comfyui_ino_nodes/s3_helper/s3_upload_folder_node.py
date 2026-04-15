@@ -20,7 +20,6 @@ class InoS3UploadFolder(io.ComfyNode):
             description="Uploads an entire local folder to S3 with concurrent uploads and optional verification.",
             is_output_node=True,
             inputs=[
-                io.AnyType.Input("execute"),
                 io.Boolean.Input("enabled", default=True, label_off="OFF", label_on="ON"),
                 io.String.Input("s3_key", default=""),
                 io.Combo.Input("parent_folder", options=PARENT_FOLDER_OPTIONS),
@@ -43,10 +42,8 @@ class InoS3UploadFolder(io.ComfyNode):
         )
 
     @classmethod
-    async def execute(cls, execute, enabled, s3_key, parent_folder, folder, delete_local, s3_config=None, max_concurrent=5, verify_with_s3=False) -> io.NodeOutput:
+    async def execute(cls, enabled, s3_key, parent_folder, folder, delete_local, s3_config=None, max_concurrent=5, verify_with_s3=False) -> io.NodeOutput:
         if not enabled:
-            return io.NodeOutput(False, "", "", "", 0, 0, 0, "")
-        if not execute:
             return io.NodeOutput(False, "", "", "", 0, 0, 0, "")
 
         validate_s3_key = S3Helper.validate_s3_key(s3_key)

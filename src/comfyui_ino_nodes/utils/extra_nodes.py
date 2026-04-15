@@ -15,8 +15,8 @@ class InoRelay(io.ComfyNode):
             category="InoExtraNodes",
             description="Passes through two values of any type. Useful for controlling execution order.",
             inputs=[
-                io.MatchType.Input("execute", template=execute_template, optional=True),
-                io.MatchType.Input("relay", template=relay_template, optional=True),
+                io.MatchType.Input("execute", template=execute_template),
+                io.MatchType.Input("relay", template=relay_template),
             ],
             outputs=[
                 io.MatchType.Output(template=execute_template, display_name="execute"),
@@ -25,10 +25,8 @@ class InoRelay(io.ComfyNode):
         )
 
     @classmethod
-    def execute(cls, execute=None, relay=None) -> io.NodeOutput:
-        if execute is not None:
-            return io.NodeOutput(execute, relay)
-        return io.NodeOutput(execute, None)
+    def execute(cls, execute, relay) -> io.NodeOutput:
+        return io.NodeOutput(execute, relay)
 
 class InoAnyEqual(io.ComfyNode):
     @classmethod

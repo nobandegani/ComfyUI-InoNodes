@@ -421,7 +421,6 @@ class InoLoadSamplerModels(io.ComfyNode):
             description="Downloads and loads all sampler models (UNET, CLIP, VAE) and up to 4 LoRAs from config.",
             inputs=[
                 io.Boolean.Input("enabled", default=True, label_off="OFF", label_on="ON"),
-                io.AnyType.Input("execute"),
                 io.String.Input("model_config"),
                 io.String.Input("lora_1_config"),
                 io.String.Input("lora_2_config"),
@@ -442,16 +441,13 @@ class InoLoadSamplerModels(io.ComfyNode):
         )
 
     @classmethod
-    async def execute(cls, enabled, execute, model_config,
+    async def execute(cls, enabled, model_config,
                       lora_1_config, lora_2_config, lora_3_config, lora_4_config,
                       clip_device="default", use_dual_clip="unset") -> io.NodeOutput:
         fail = lambda msg: io.NodeOutput(False, msg, None, None, None, None, None)
 
         if not enabled:
             ino_print_log("InoLoadSamplerModels", "not enabled")
-            return fail("not enabled")
-        if not execute:
-            ino_print_log("InoLoadSamplerModels", "execute is False")
             return fail("not enabled")
 
         try:

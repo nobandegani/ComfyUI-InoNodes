@@ -17,7 +17,6 @@ class InoS3VerifyFile(io.ComfyNode):
             category="InoS3Helper",
             description="Verifies a local file exists in S3 and optionally checks integrity via hash.",
             inputs=[
-                io.AnyType.Input("execute"),
                 io.Boolean.Input("enabled", default=True, label_off="OFF", label_on="ON"),
                 io.String.Input("s3_key", default=""),
                 io.Combo.Input("parent_folder", options=PARENT_FOLDER_OPTIONS),
@@ -38,11 +37,9 @@ class InoS3VerifyFile(io.ComfyNode):
         )
 
     @classmethod
-    async def execute(cls, execute, enabled, s3_key, parent_folder, folder, filename, s3_config=None, use_md5=False, use_sha256=False) -> io.NodeOutput:
+    async def execute(cls, enabled, s3_key, parent_folder, folder, filename, s3_config=None, use_md5=False, use_sha256=False) -> io.NodeOutput:
         if not enabled:
             return io.NodeOutput(False, "not enabled", "", "", False, False)
-        if not execute:
-            return io.NodeOutput(False, "execute empty", "", "", False, False)
 
         validate_s3_key = S3Helper.validate_s3_key(s3_key)
         if not validate_s3_key["success"]:

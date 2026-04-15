@@ -94,7 +94,6 @@ class InoSaveJson(io.ComfyNode):
             description="Saves a JSON string to a file in the specified folder.",
             is_output_node=True,
             inputs=[
-                io.AnyType.Input("execute", optional=True),
                 io.Boolean.Input("enabled", default=True, label_off="OFF", label_on="ON"),
                 io.String.Input("json_string", default="{}"),
                 io.Combo.Input("parent_folder", options=PARENT_FOLDER_OPTIONS),
@@ -110,11 +109,9 @@ class InoSaveJson(io.ComfyNode):
         )
 
     @classmethod
-    async def execute(cls, enabled, json_string, parent_folder, folder, filename, execute=None) -> io.NodeOutput:
+    async def execute(cls, enabled, json_string, parent_folder, folder, filename) -> io.NodeOutput:
         if not enabled:
             return io.NodeOutput(True, "skipped: not enabled", "", "")
-        if execute is not None and not execute:
-            return io.NodeOutput(True, "skipped: execute is false", "", "")
 
         try:
             rel_path, abs_path = resolve_comfy_path(parent_folder, folder, filename)

@@ -20,7 +20,6 @@ class InoS3UploadFile(io.ComfyNode):
             description="Uploads a local file to S3. If s3_path_key contains a filename, its stem is used with the local file's extension. Otherwise the local filename is used.",
             is_output_node=True,
             inputs=[
-                io.AnyType.Input("execute"),
                 io.Boolean.Input("enabled", default=True, label_off="OFF", label_on="ON"),
                 io.String.Input("s3_path_key", default=""),
                 io.Combo.Input("parent_folder", options=PARENT_FOLDER_OPTIONS),
@@ -37,11 +36,9 @@ class InoS3UploadFile(io.ComfyNode):
         )
 
     @classmethod
-    async def execute(cls, execute, enabled, s3_path_key, parent_folder, folder, filename, delete_local, s3_config=None) -> io.NodeOutput:
+    async def execute(cls, enabled, s3_path_key, parent_folder, folder, filename, delete_local, s3_config=None) -> io.NodeOutput:
         if not enabled:
             return io.NodeOutput(False, "not enabled", "")
-        if not execute:
-            return io.NodeOutput(False, "execute empty", "")
 
         validate_s3_key = S3Helper.validate_s3_key(s3_path_key)
         if not validate_s3_key["success"]:
