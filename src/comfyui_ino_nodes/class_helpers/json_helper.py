@@ -24,7 +24,6 @@ class InoJsonSetField(io.ComfyNode):
                 io.Boolean.Output(display_name="success"),
                 io.String.Output(display_name="message"),
                 io.String.Output(display_name="json"),
-                io.String.Output(display_name="json_as_dict"),
             ],
         )
 
@@ -34,20 +33,20 @@ class InoJsonSetField(io.ComfyNode):
             json_object = InoJsonHelper.string_to_dict(base_json)
             if not json_object["success"]:
                 ino_print_log("InoJsonSetField", json_object["msg"])
-                return io.NodeOutput(False, json_object["msg"], "", "")
+                return io.NodeOutput(False, json_object["msg"], "")
             json_object = json_object["data"]
 
             json_object[field_name] = field_value
             json_string = InoJsonHelper.dict_to_string(json_object)
             if not json_string["success"]:
                 ino_print_log("InoJsonSetField", json_string["msg"])
-                return io.NodeOutput(False, json_string["msg"], "", "")
+                return io.NodeOutput(False, json_string["msg"], "")
 
             ino_print_log("InoJsonSetField", "Success")
-            return io.NodeOutput(True, "Success", json_string["data"], str(json_object))
+            return io.NodeOutput(True, "Success", json_string["data"])
         except Exception as e:
             ino_print_log("InoJsonSetField", "", str(e))
-            return io.NodeOutput(False, f"failed: {e}", "", "")
+            return io.NodeOutput(False, f"failed: {e}", "")
 
 
 class InoJsonGetField(io.ComfyNode):
@@ -75,14 +74,14 @@ class InoJsonGetField(io.ComfyNode):
             json_object = InoJsonHelper.string_to_dict(base_json)
             if not json_object["success"]:
                 ino_print_log("InoJsonGetField", json_object["msg"])
-                return io.NodeOutput(False, json_object["msg"], "")
+                return io.NodeOutput(False, json_object["msg"], None)
             json_object = json_object["data"]
 
             ino_print_log("InoJsonGetField", "Success")
             return io.NodeOutput(True, "Success", json_object[field_name])
         except Exception as e:
             ino_print_log("InoJsonGetField", "", str(e))
-            return io.NodeOutput(False, f"failed: {e}", "")
+            return io.NodeOutput(False, f"failed: {e}", None)
 
 
 class InoSaveJson(io.ComfyNode):
@@ -95,7 +94,7 @@ class InoSaveJson(io.ComfyNode):
             description="Saves a JSON string to a file in the specified folder.",
             is_output_node=True,
             inputs=[
-                io.AnyType.Input("execute"),
+                io.AnyType.Input("execute", optional=True),
                 io.Boolean.Input("enabled", default=True, label_off="OFF", label_on="ON"),
                 io.String.Input("json_string", default="{}"),
                 io.Combo.Input("parent_folder", options=PARENT_FOLDER_OPTIONS),
@@ -111,11 +110,11 @@ class InoSaveJson(io.ComfyNode):
         )
 
     @classmethod
-    async def execute(cls, execute, enabled, json_string, parent_folder, folder, filename) -> io.NodeOutput:
+    async def execute(cls, enabled, json_string, parent_folder, folder, filename, execute=None) -> io.NodeOutput:
         if not enabled:
-            return io.NodeOutput(False, "not enabled", "", "")
-        if not execute:
-            return io.NodeOutput(False, "execute is false", "", "")
+            return io.NodeOutput(True, "skipped: not enabled", "", "")
+        if execute is not None and not execute:
+            return io.NodeOutput(True, "skipped: execute is false", "", "")
 
         try:
             rel_path, abs_path = resolve_comfy_path(parent_folder, folder, filename)
