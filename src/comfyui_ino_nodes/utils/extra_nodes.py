@@ -241,6 +241,7 @@ class InoTerminalLog(io.ComfyNode):
             display_name="Ino Terminal Log",
             category="InoExtraNodes",
             description="Captures and returns the last N lines from the terminal stdout.",
+            is_output_node=True,
             inputs=[
                 io.Boolean.Input("enabled", default=True, label_off="OFF", label_on="ON"),
                 io.Int.Input("lines", default=50, min=1, max=10000),
