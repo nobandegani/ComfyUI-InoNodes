@@ -91,6 +91,7 @@ class InoOpenaiChatCompletions(io.ComfyNode):
                 io.String.Input("image_url", default="", optional=True),
                 io.Float.Input("temperature", default=0.7, min=0.0, max=2.0, step=0.1, optional=True),
                 io.Int.Input("max_tokens", default=1024, min=1, max=128000, optional=True),
+                io.Int.Input("seed", default=0, min=0, max=0xffffffffffffffff, control_after_generate=True),
             ],
             outputs=[
                 io.Boolean.Output(display_name="success"),
@@ -102,7 +103,7 @@ class InoOpenaiChatCompletions(io.ComfyNode):
 
     @classmethod
     async def execute(cls, enabled, user_prompt, openai_api_key="", base_url="https://api.openai.com/v1",
-                      model="gpt-5", system_prompt="", image_url="", temperature=0.7, max_tokens=1024) -> io.NodeOutput:
+                      model="gpt-5", system_prompt="", image_url="", temperature=0.7, max_tokens=1024, seed=-1) -> io.NodeOutput:
         if not enabled:
             ino_print_log("InoOpenaiChatCompletions", "Node is disabled")
             return io.NodeOutput(False, "", "", "not enabled")
