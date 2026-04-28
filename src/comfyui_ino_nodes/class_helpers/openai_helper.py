@@ -83,7 +83,7 @@ class InoOpenaiChatCompletions(io.ComfyNode):
             description="Sends a chat completion request to any OpenAI-compatible API with optional system prompt and image.",
             inputs=[
                 io.Boolean.Input("enabled", default=True, label_off="OFF", label_on="ON"),
-                io.Int.Input("seed", default=0, min=0, max=0xffffffffffffffff, control_after_generate=True),
+                #io.Int.Input("seed", default=0, min=0, max=0xffffffffffffffff, control_after_generate=True),
                 io.String.Input("user_prompt", default=""),
                 io.String.Input("openai_api_key", default="", optional=True),
                 io.String.Input("base_url", default="https://api.openai.com/v1", optional=True),
@@ -102,7 +102,7 @@ class InoOpenaiChatCompletions(io.ComfyNode):
         )
 
     @classmethod
-    async def execute(cls, enabled, seed, user_prompt, openai_api_key="", base_url="https://api.openai.com/v1",
+    async def execute(cls, enabled, user_prompt, openai_api_key="", base_url="https://api.openai.com/v1",
                       model="gpt-5", system_prompt="", image_url="", temperature=0.7, max_tokens=1024) -> io.NodeOutput:
         if not enabled:
             ino_print_log("InoOpenaiChatCompletions", "Node is disabled")
