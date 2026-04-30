@@ -73,6 +73,25 @@ class InoOpenaiResponses(io.ComfyNode):
             return io.NodeOutput(False, "", "Openai response failed", str(e), "", "")
 
 
+def _serialize_tool_calls(tool_calls) -> str:
+    """Best-effort JSON serialization of OpenAI tool_calls (list of objects)."""
+    if not tool_calls:
+        return ""
+    try:
+        # OpenAI SDK objects expose model_dump(); fall back to dict() / str()
+        serialized = []
+        for tc in tool_calls:
+            if hasattr(tc, "model_dump"):
+                serialized.append(tc.model_dump())
+            elif hasattr(tc, "dict"):
+                serialized.append(tc.dict())
+            else:
+                serialized.append(str(tc))
+        return InoJsonHelper.dict_to_string(serialized)["data"]
+    except Exception:
+        return str(tool_calls)
+
+
 class InoOpenaiChatCompletions(io.ComfyNode):
     @classmethod
     def define_schema(cls):
@@ -80,7 +99,7 @@ class InoOpenaiChatCompletions(io.ComfyNode):
             node_id="InoOpenaiChatCompletions",
             display_name="Ino Openai Chat Completions",
             category="InoOpenaiHelper",
-            description="Sends a chat completion request to any OpenAI-compatible API with optional system prompt and image.",
+            description="Sends a chat completion request to any OpenAI-compatible API (OpenAI, vLLM, RunPod, Modal) with optional system prompt and image.",
             inputs=[
                 io.Boolean.Input("enabled", default=True, label_off="OFF", label_on="ON"),
                 #io.Int.Input("seed", default=0, min=0, max=0xffffffffffffffff, control_after_generate=True),
@@ -92,21 +111,29 @@ class InoOpenaiChatCompletions(io.ComfyNode):
                 io.String.Input("image_url", default="", optional=True),
                 io.Float.Input("temperature", default=0.7, min=0.0, max=2.0, step=0.1, optional=True),
                 io.Int.Input("max_tokens", default=1024, min=1, max=128000, optional=True),
+                io.Float.Input("top_p", default=1.0, min=0.0, max=1.0, step=0.05, optional=True),
+                io.Boolean.Input("enable_thinking", default=True, label_off="OFF", label_on="ON", optional=True, tooltip="Qwen3-style thinking phase toggle for vLLM. Ignored by OpenAI-only servers."),
             ],
             outputs=[
                 io.Boolean.Output(display_name="success"),
                 io.String.Output(display_name="response"),
                 io.String.Output(display_name="finish_reason"),
                 io.String.Output(display_name="error"),
+                io.String.Output(display_name="reasoning"),
+                io.String.Output(display_name="tool_calls"),
+                io.Int.Output(display_name="prompt_tokens"),
+                io.Int.Output(display_name="completion_tokens"),
+                io.Int.Output(display_name="total_tokens"),
             ],
         )
 
     @classmethod
     async def execute(cls, enabled, user_prompt, openai_api_key="", base_url="https://api.openai.com/v1",
-                      model="gpt-5", system_prompt="", image_url="", temperature=0.7, max_tokens=1024) -> io.NodeOutput:
+                      model="gpt-5", system_prompt="", image_url="", temperature=0.7, max_tokens=1024,
+                      top_p=1.0, enable_thinking=True) -> io.NodeOutput:
         if not enabled:
             ino_print_log("InoOpenaiChatCompletions", "Node is disabled")
-            return io.NodeOutput(False, "", "", "not enabled")
+            return io.NodeOutput(False, "", "", "not enabled", "", "", 0, 0, 0)
 
         try:
             api_key = openai_api_key if openai_api_key else os.getenv('OPENAI_TOKEN', '')
@@ -118,17 +145,32 @@ class InoOpenaiChatCompletions(io.ComfyNode):
                 api_key=api_key, base_url=base_url, model=model,
                 user_prompt=user_prompt, system_prompt=system_prompt,
                 image=image, temperature=temperature, max_tokens=max_tokens,
+                top_p=top_p, enable_thinking=enable_thinking,
             )
 
             if result.get("success"):
-                return io.NodeOutput(True, result.get("response", ""), result.get("finish_reason", ""), "none")
+                usage = result.get("usage") or {}
+                reasoning = result.get("reasoning") or ""
+                tool_calls_str = _serialize_tool_calls(result.get("tool_calls"))
+                return io.NodeOutput(
+                    True,
+                    result.get("response", ""),
+                    result.get("finish_reason") or "",
+                    "none",
+                    reasoning,
+                    tool_calls_str,
+                    int(usage.get("prompt_tokens") or 0),
+                    int(usage.get("completion_tokens") or 0),
+                    int(usage.get("total_tokens") or 0),
+                )
             else:
-                error_msg = result.get("message", "unknown error")
+                # ino_err uses the key "msg", not "message"
+                error_msg = result.get("msg", "unknown error")
                 ino_print_log("InoOpenaiChatCompletions", "", error_msg)
-                return io.NodeOutput(False, "", "", error_msg)
+                return io.NodeOutput(False, "", "", error_msg, "", "", 0, 0, 0)
         except Exception as e:
             ino_print_log("InoOpenaiChatCompletions", "", e)
-            return io.NodeOutput(False, "", "", str(e))
+            return io.NodeOutput(False, "", "", str(e), "", "", 0, 0, 0)
 
 
 LOCAL_NODE_CLASS = {
