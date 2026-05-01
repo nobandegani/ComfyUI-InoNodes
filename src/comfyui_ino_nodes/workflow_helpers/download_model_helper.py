@@ -359,12 +359,12 @@ class InoS3DownloadModel(io.ComfyNode):
             s3_instance = S3Helper.get_instance(s3_config)
             if ino_is_err(s3_instance):
                 return io.NodeOutput(False, s3_instance["msg"], "", "", "")
-            s3_instance = s3_instance["instance"]
+            async with s3_instance["instance"] as s3_instance:
 
-            s3_result = await s3_instance.download_file(s3_key=s3_key, local_file_path=model_path)
+                s3_result = await s3_instance.download_file(s3_key=s3_key, local_file_path=model_path)
 
-            ino_print_log("InoS3DownloadModel", "file downloaded successfully")
-            return io.NodeOutput(s3_result["success"], s3_result["msg"], model_type, str(model_path), str(rel_path))
+                ino_print_log("InoS3DownloadModel", "file downloaded successfully")
+                return io.NodeOutput(s3_result["success"], s3_result["msg"], model_type, str(model_path), str(rel_path))
         except Exception as e:
             ino_print_log("InoS3DownloadModel", "", e)
             return io.NodeOutput(False, f"Error: {e}", "", "", "")
