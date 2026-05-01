@@ -18,7 +18,7 @@ from comfy_api.latest import io
 
 from inopyutils import InoJsonHelper, ino_is_err
 
-from ..node_helper import PARENT_FOLDER_OPTIONS, resolve_comfy_path, load_images_from_folder
+from ..node_helper import PARENT_FOLDER_OPTIONS, resolve_comfy_path, load_image, load_images_from_folder
 
 MAX_RESOLUTION = nodes.MAX_RESOLUTION
 
@@ -344,6 +344,57 @@ class InoLoadImagesFromFolder(io.ComfyNode):
             empty_mask = torch.zeros((64, 64), dtype=torch.float32, device="cpu").unsqueeze(0)
             return io.NodeOutput(False, "No images found", rel_path, abs_path, [empty_image], [empty_mask], 0)
         return io.NodeOutput(True, f"Loaded {len(output_images)} images", rel_path, abs_path, output_images, output_masks, len(output_images))
+
+
+class InoLoadImage(io.ComfyNode):
+    @classmethod
+    def define_schema(cls):
+        return io.Schema(
+            node_id="InoLoadImage",
+            display_name="Ino Load Image",
+            category="InoImageHelper",
+            description="Loads a single image from input/output/temp by parent_folder + folder + filename. Returns (success, message, rel_path, abs_path, image, mask).",
+            inputs=[
+                io.Combo.Input("parent_folder", options=PARENT_FOLDER_OPTIONS),
+                io.String.Input("folder", default=""),
+                io.String.Input("filename", default=""),
+            ],
+            outputs=[
+                io.Boolean.Output(display_name="success"),
+                io.String.Output(display_name="message"),
+                io.String.Output(display_name="rel_path"),
+                io.String.Output(display_name="abs_path"),
+                io.Image.Output(display_name="image"),
+                io.Mask.Output(display_name="mask"),
+            ],
+        )
+
+    @classmethod
+    async def execute(cls, parent_folder, folder, filename) -> io.NodeOutput:
+        rel_path, abs_path = resolve_comfy_path(parent_folder, folder, filename)
+
+        def _empty():
+            from nodes import EmptyImage
+            empty_image = EmptyImage().generate(512, 512)[0]
+            empty_mask = torch.zeros((64, 64), dtype=torch.float32, device="cpu").unsqueeze(0)
+            return empty_image, empty_mask
+
+        if not filename:
+            empty_image, empty_mask = _empty()
+            return io.NodeOutput(False, "filename is required", rel_path, abs_path, empty_image, empty_mask)
+
+        if not Path(abs_path).is_file():
+            empty_image, empty_mask = _empty()
+            return io.NodeOutput(False, f"File not found: {abs_path}", rel_path, abs_path, empty_image, empty_mask)
+
+        try:
+            # load_image is synchronous (PIL + torch) — offload to a thread.
+            image, mask = await asyncio.to_thread(load_image, abs_path)
+        except Exception as e:
+            empty_image, empty_mask = _empty()
+            return io.NodeOutput(False, f"Failed to load image: {e}", rel_path, abs_path, empty_image, empty_mask)
+
+        return io.NodeOutput(True, "loaded", rel_path, abs_path, image, mask)
 
 
 class InoImageListToBatch(io.ComfyNode):
@@ -799,6 +850,7 @@ LOCAL_NODE_CLASS = {
     "InoImageResizeByLongerSideV1": InoImageResizeByLongerSideV1,
     "InoImageResizeByLongerSideAndCropV2": InoImageResizeByLongerSideAndCropV2,
     "InoResizeCropImage": InoResizeCropImage,
+    "InoLoadImage": InoLoadImage,
     "InoLoadImagesFromFolder": InoLoadImagesFromFolder,
     "InoOnImageListCompleted": InoOnImageListCompleted,
     "InoCropImageByBox": InoCropImageByBox,
@@ -816,6 +868,7 @@ LOCAL_NODE_NAME = {
     "InoImageResizeByLongerSideV1": "Ino Image Resize By Longer Side V1",
     "InoImageResizeByLongerSideAndCropV2": "Ino Image Resize By Longer Side And Crop V2",
     "InoResizeCropImage": "Ino Resize Crop Image",
+    "InoLoadImage": "Ino Load Image",
     "InoLoadImagesFromFolder": "Ino Load Images From Folder",
     "InoOnImageListCompleted": "Ino On Image List Completed",
     "InoCropImageByBox": "Ino Crop Image By Box",
