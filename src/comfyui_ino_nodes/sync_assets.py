@@ -1,9 +1,28 @@
 import os
 import asyncio
+from contextlib import suppress
 
 from botocore.config import Config
 
 from inopyutils import InoS3Helper, ino_is_err
+
+
+def _env_bool(name: str, default: bool) -> bool:
+    val = os.getenv(name)
+    if val is None:
+        return default
+    return val.strip().lower() in ("1", "true", "yes", "on")
+
+
+def _env_int(name: str, default: int) -> int:
+    val = os.getenv(name)
+    if not val:
+        return default
+    try:
+        return int(val)
+    except ValueError:
+        return default
+
 
 class FileSyncer:
     def __init__(self):
@@ -67,6 +86,13 @@ class FileSyncer:
         self.s3_bucket: str = os.getenv("SYNC_S3_BUCKET", "")
         self.s3_id: str = os.getenv("SYNC_S3_ID", "")
         self.s3_secret: str = os.getenv("SYNC_S3_SECRET", "")
+
+        # Tunable knobs. delete defaults to False so we don't wipe local
+        # files that aren't on S3 (the helper's own default is True, which
+        # is unsafe for our use case where users often drop files manually
+        # into the model folders).
+        self.delete_orphans: bool = _env_bool("SYNC_DELETE", False)
+        self.concurrency: int = max(1, _env_int("SYNC_CONCURRENCY", 5))
 
         missing = [name for name, val in [
             ("SYNC_S3_URL", self.s3_url), ("SYNC_S3_BUCKET", self.s3_bucket),
@@ -141,7 +167,8 @@ class FileSyncer:
         syncfolder_res = await self.s3_client.sync_folder(
             s3_key=folder,
             local_folder_path=local_folder_path,
-            concurrency=5
+            concurrency=self.concurrency,
+            delete=self.delete_orphans,
         )
         if ino_is_err(syncfolder_res):
             print(f"Syncing folder failed for {folder}: {syncfolder_res['msg']}")
@@ -155,11 +182,26 @@ class FileSyncer:
         for folder in self.sync_folders:
             await self._sync_one(folder)
 
+    async def close(self) -> None:
+        """Tear down the underlying aioboto3 client. Safe to call multiple times."""
+        if self.s3_client is not None:
+            with suppress(Exception):
+                await self.s3_client.close()
+            self.s3_client = None
+
+    async def __aenter__(self) -> "FileSyncer":
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb) -> None:
+        await self.close()
+
+
 async def main():
     print("Sync assets starting...")
-    file_syncer = FileSyncer()
-    file_syncer.prepare_comfy_models()
-    await file_syncer.sync_files()
+    async with FileSyncer() as file_syncer:
+        file_syncer.prepare_comfy_models()
+        await file_syncer.sync_files()
+
 
 if __name__ == "__main__":
     asyncio.run(main())
