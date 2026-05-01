@@ -369,6 +369,9 @@ class InoLoadImage(io.ComfyNode):
             ],
         )
 
+    # Extension fallback order when filename is provided without a suffix.
+    EXTENSION_FALLBACKS = (".jpg", ".png")
+
     @classmethod
     async def execute(cls, parent_folder, folder, filename) -> io.NodeOutput:
         rel_path, abs_path = resolve_comfy_path(parent_folder, folder, filename)
@@ -382,6 +385,15 @@ class InoLoadImage(io.ComfyNode):
         if not filename:
             empty_image, empty_mask = _empty()
             return io.NodeOutput(False, "filename is required", rel_path, abs_path, empty_image, empty_mask)
+
+        # If the user didn't include an extension, probe the fallback list
+        # (jpg first, then png) and use the first match found on disk.
+        if not Path(filename).suffix:
+            for ext in cls.EXTENSION_FALLBACKS:
+                candidate_rel, candidate_abs = resolve_comfy_path(parent_folder, folder, filename + ext)
+                if Path(candidate_abs).is_file():
+                    rel_path, abs_path = candidate_rel, candidate_abs
+                    break
 
         if not Path(abs_path).is_file():
             empty_image, empty_mask = _empty()
