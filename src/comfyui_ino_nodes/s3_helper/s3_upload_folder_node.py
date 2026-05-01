@@ -59,10 +59,10 @@ class InoS3UploadFolder(io.ComfyNode):
         s3_instance = S3Helper.get_instance(s3_config)
         if ino_is_err(s3_instance):
             return io.NodeOutput(False, s3_instance["msg"], rel_path, abs_path, 0, 0, 0, "")
-        s3_instance = s3_instance["instance"]
+        async with s3_instance["instance"] as s3_instance:
 
-        s3_result = await s3_instance.upload_folder(s3_folder_key=s3_key, local_folder_path=abs_path, max_concurrent=max_concurrent, verify=verify_with_s3)
-        if s3_result["success"] and delete_local:
-            await asyncio.to_thread(shutil.rmtree, Path(abs_path))
+            s3_result = await s3_instance.upload_folder(s3_folder_key=s3_key, local_folder_path=abs_path, max_concurrent=max_concurrent, verify=verify_with_s3)
+            if s3_result["success"] and delete_local:
+                await asyncio.to_thread(shutil.rmtree, Path(abs_path))
 
-        return io.NodeOutput(s3_result["success"], s3_result["msg"], rel_path, abs_path, s3_result["total_files"], s3_result["uploaded_successfully"], s3_result["failed_uploads"], str(s3_result["errors"]))
+            return io.NodeOutput(s3_result["success"], s3_result["msg"], rel_path, abs_path, s3_result["total_files"], s3_result["uploaded_successfully"], s3_result["failed_uploads"], str(s3_result["errors"]))

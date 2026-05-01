@@ -45,20 +45,20 @@ class InoS3GetDownloadURL(io.ComfyNode):
         s3_instance = S3Helper.get_instance(s3_config)
         if ino_is_err(s3_instance):
             return io.NodeOutput(False, s3_instance["msg"], "", "")
-        s3_instance = s3_instance["instance"]
+        async with s3_instance["instance"] as s3_instance:
 
-        # Helper expects None (not "") to fall back to the object's basename.
-        suggested_filename = filename or None
+            # Helper expects None (not "") to fall back to the object's basename.
+            suggested_filename = filename or None
 
-        s3_result = await s3_instance.get_download_link(
-            s3_key=s3_key,
-            expires_in=expires_in,
-            as_attachment=as_attachment,
-            filename=suggested_filename,
-        )
-        return io.NodeOutput(
-            s3_result.get("success", False),
-            s3_result.get("msg", ""),
-            s3_result.get("url", ""),
-            s3_result.get("filename", ""),
-        )
+            s3_result = await s3_instance.get_download_link(
+                s3_key=s3_key,
+                expires_in=expires_in,
+                as_attachment=as_attachment,
+                filename=suggested_filename,
+            )
+            return io.NodeOutput(
+                s3_result.get("success", False),
+                s3_result.get("msg", ""),
+                s3_result.get("url", ""),
+                s3_result.get("filename", ""),
+            )

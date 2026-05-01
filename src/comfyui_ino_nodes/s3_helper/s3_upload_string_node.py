@@ -57,12 +57,12 @@ class InoS3UploadString(io.ComfyNode):
         s3_instance = S3Helper.get_instance(s3_config)
         if ino_is_err(s3_instance):
             return io.NodeOutput(string, False, s3_instance["msg"], "", "")
-        s3_instance = s3_instance["instance"]
+        async with s3_instance["instance"] as s3_instance:
 
-        s3_full_key = f"{s3_path_key.rstrip('/')}/{s3_file}"
-        content_type = _CONTENT_TYPE_MAP.get(save_as, "text/plain; charset=utf-8")
-        s3_result = await s3_instance.put_text(text=string, s3_key=s3_full_key, content_type=content_type)
-        if not s3_result["success"]:
-            return io.NodeOutput(string, False, s3_result["msg"], "", "")
+            s3_full_key = f"{s3_path_key.rstrip('/')}/{s3_file}"
+            content_type = _CONTENT_TYPE_MAP.get(save_as, "text/plain; charset=utf-8")
+            s3_result = await s3_instance.put_text(text=string, s3_key=s3_full_key, content_type=content_type)
+            if not s3_result["success"]:
+                return io.NodeOutput(string, False, s3_result["msg"], "", "")
 
-        return io.NodeOutput(string, True, s3_result.get("msg", "Success"), s3_file, s3_full_key)
+            return io.NodeOutput(string, True, s3_result.get("msg", "Success"), s3_file, s3_full_key)

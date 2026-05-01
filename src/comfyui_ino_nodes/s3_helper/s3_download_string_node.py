@@ -38,10 +38,10 @@ class InoS3DownloadString(io.ComfyNode):
         s3_instance = S3Helper.get_instance(s3_config)
         if ino_is_err(s3_instance):
             return io.NodeOutput(False, s3_instance["msg"], "")
-        s3_instance = s3_instance["instance"]
+        async with s3_instance["instance"] as s3_instance:
 
-        result = await s3_instance.get_text(s3_key=s3_key, encoding=encoding)
-        if not result["success"]:
-            return io.NodeOutput(False, result["msg"], "")
+            result = await s3_instance.get_text(s3_key=s3_key, encoding=encoding)
+            if not result["success"]:
+                return io.NodeOutput(False, result["msg"], "")
 
-        return io.NodeOutput(True, result.get("msg", "Success"), result.get("text", ""))
+            return io.NodeOutput(True, result.get("msg", "Success"), result.get("text", ""))

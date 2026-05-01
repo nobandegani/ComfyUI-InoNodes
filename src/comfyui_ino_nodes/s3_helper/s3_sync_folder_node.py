@@ -60,26 +60,26 @@ class InoS3SyncFolder(io.ComfyNode):
         s3_instance = S3Helper.get_instance(s3_config)
         if ino_is_err(s3_instance):
             return io.NodeOutput(False, s3_instance["msg"], rel_path, abs_path, 0, 0, 0, 0, 0, 0, "")
-        s3_instance = s3_instance["instance"]
+        async with s3_instance["instance"] as s3_instance:
 
-        s3_result = await s3_instance.sync_folder(
-            s3_key=s3_key,
-            local_folder_path=abs_path,
-            sync_local=sync_local,
-            concurrency=concurrency,
-            delete=delete,
-        )
+            s3_result = await s3_instance.sync_folder(
+                s3_key=s3_key,
+                local_folder_path=abs_path,
+                sync_local=sync_local,
+                concurrency=concurrency,
+                delete=delete,
+            )
 
-        return io.NodeOutput(
-            s3_result["success"],
-            s3_result["msg"],
-            rel_path,
-            abs_path,
-            int(s3_result.get("downloaded", 0)),
-            int(s3_result.get("uploaded", 0)),
-            int(s3_result.get("skipped_unchanged", 0)),
-            int(s3_result.get("failed", 0)),
-            int(s3_result.get("removed_local", 0)),
-            int(s3_result.get("removed_remote", 0)),
-            str(s3_result.get("errors", "")),
-        )
+            return io.NodeOutput(
+                s3_result["success"],
+                s3_result["msg"],
+                rel_path,
+                abs_path,
+                int(s3_result.get("downloaded", 0)),
+                int(s3_result.get("uploaded", 0)),
+                int(s3_result.get("skipped_unchanged", 0)),
+                int(s3_result.get("failed", 0)),
+                int(s3_result.get("removed_local", 0)),
+                int(s3_result.get("removed_remote", 0)),
+                str(s3_result.get("errors", "")),
+            )

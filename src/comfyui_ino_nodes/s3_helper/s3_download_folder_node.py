@@ -60,23 +60,23 @@ class InoS3DownloadFolder(io.ComfyNode):
         s3_instance = S3Helper.get_instance(s3_config)
         if ino_is_err(s3_instance):
             return io.NodeOutput(False, s3_instance["msg"], rel_path, abs_path, 0, 0, 0, 0, "")
-        s3_instance = s3_instance["instance"]
+        async with s3_instance["instance"] as s3_instance:
 
-        s3_result = await s3_instance.download_folder(
-            s3_folder_key=s3_key,
-            local_folder_path=abs_path,
-            max_concurrent=max_concurrent,
-            verify=verify,
-            overwrite=overwrite,
-        )
-        return io.NodeOutput(
-            s3_result["success"],
-            s3_result["msg"],
-            rel_path,
-            abs_path,
-            int(s3_result.get("total_files", 0)),
-            int(s3_result.get("downloaded_successfully", 0)),
-            int(s3_result.get("skipped_files", 0)),
-            int(s3_result.get("failed_downloads", 0)),
-            str(s3_result.get("errors", "")),
-        )
+            s3_result = await s3_instance.download_folder(
+                s3_folder_key=s3_key,
+                local_folder_path=abs_path,
+                max_concurrent=max_concurrent,
+                verify=verify,
+                overwrite=overwrite,
+            )
+            return io.NodeOutput(
+                s3_result["success"],
+                s3_result["msg"],
+                rel_path,
+                abs_path,
+                int(s3_result.get("total_files", 0)),
+                int(s3_result.get("downloaded_successfully", 0)),
+                int(s3_result.get("skipped_files", 0)),
+                int(s3_result.get("failed_downloads", 0)),
+                str(s3_result.get("errors", "")),
+            )

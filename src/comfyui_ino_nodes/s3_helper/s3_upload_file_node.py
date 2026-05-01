@@ -63,10 +63,10 @@ class InoS3UploadFile(io.ComfyNode):
         s3_instance = S3Helper.get_instance(s3_config)
         if ino_is_err(s3_instance):
             return io.NodeOutput(False, s3_instance["msg"], "")
-        s3_instance = s3_instance["instance"]
+        async with s3_instance["instance"] as s3_instance:
 
-        s3_result = await s3_instance.upload_file(s3_key=s3_full_key, local_file_path=abs_path)
-        if s3_result["success"] and delete_local:
-            await asyncio.to_thread(os.remove, abs_path)
+            s3_result = await s3_instance.upload_file(s3_key=s3_full_key, local_file_path=abs_path)
+            if s3_result["success"] and delete_local:
+                await asyncio.to_thread(os.remove, abs_path)
 
-        return io.NodeOutput(s3_result["success"], s3_result["msg"], s3_full_key)
+            return io.NodeOutput(s3_result["success"], s3_result["msg"], s3_full_key)

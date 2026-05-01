@@ -60,21 +60,21 @@ class InoS3VerifyFile(io.ComfyNode):
         s3_instance = S3Helper.get_instance(s3_config)
         if ino_is_err(s3_instance):
             return io.NodeOutput(False, s3_instance["msg"], rel_path, abs_path, False, False, "", 0, 0, "", False, False)
-        s3_instance = s3_instance["instance"]
+        async with s3_instance["instance"] as s3_instance:
 
-        s3_result = await s3_instance.verify_file(local_file_path=abs_path, s3_key=s3_key, use_md5=use_md5, use_sha256=use_sha256)
+            s3_result = await s3_instance.verify_file(local_file_path=abs_path, s3_key=s3_key, use_md5=use_md5, use_sha256=use_sha256)
 
-        return io.NodeOutput(
-            s3_result["success"],
-            s3_result["msg"],
-            rel_path,
-            abs_path,
-            bool(s3_result.get("exists_remote", False)),
-            bool(s3_result.get("sizes_match", False)),
-            str(s3_result.get("verify_method") or ""),
-            int(s3_result.get("local_size") or 0),
-            int(s3_result.get("remote_size") or 0),
-            str(s3_result.get("etag") or ""),
-            bool(s3_result.get("md5_match") or False),
-            bool(s3_result.get("sha256_match") or False),
-        )
+            return io.NodeOutput(
+                s3_result["success"],
+                s3_result["msg"],
+                rel_path,
+                abs_path,
+                bool(s3_result.get("exists_remote", False)),
+                bool(s3_result.get("sizes_match", False)),
+                str(s3_result.get("verify_method") or ""),
+                int(s3_result.get("local_size") or 0),
+                int(s3_result.get("remote_size") or 0),
+                str(s3_result.get("etag") or ""),
+                bool(s3_result.get("md5_match") or False),
+                bool(s3_result.get("sha256_match") or False),
+            )

@@ -57,12 +57,12 @@ class InoS3DownloadImage(io.ComfyNode):
         s3_instance = S3Helper.get_instance(s3_config)
         if ino_is_err(s3_instance):
             return io.NodeOutput(False, s3_instance["msg"], _empty_image(), None)
-        s3_instance = s3_instance["instance"]
+        async with s3_instance["instance"] as s3_instance:
 
-        downloaded = await s3_instance.download_file(s3_key=s3_key, local_file_path=full_path)
-        if not downloaded["success"]:
-            return io.NodeOutput(False, downloaded["msg"], _empty_image(), None)
+            downloaded = await s3_instance.download_file(s3_key=s3_key, local_file_path=full_path)
+            if not downloaded["success"]:
+                return io.NodeOutput(False, downloaded["msg"], _empty_image(), None)
 
-        # load_image is synchronous (PIL + torch) — offload to a thread.
-        output_image, output_mask = await asyncio.to_thread(load_image, downloaded["local_file"])
-        return io.NodeOutput(True, downloaded["msg"], output_image, output_mask)
+            # load_image is synchronous (PIL + torch) — offload to a thread.
+            output_image, output_mask = await asyncio.to_thread(load_image, downloaded["local_file"])
+            return io.NodeOutput(True, downloaded["msg"], output_image, output_mask)

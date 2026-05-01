@@ -49,13 +49,13 @@ class InoS3DownloadVideo(io.ComfyNode):
         s3_instance = S3Helper.get_instance(s3_config)
         if ino_is_err(s3_instance):
             return io.NodeOutput(False, s3_instance["msg"], None)
-        s3_instance = s3_instance["instance"]
+        async with s3_instance["instance"] as s3_instance:
 
-        downloaded = await s3_instance.download_file(s3_key=s3_key, local_file_path=full_path)
-        if not downloaded["success"]:
-            return io.NodeOutput(False, downloaded["msg"], None)
+            downloaded = await s3_instance.download_file(s3_key=s3_key, local_file_path=full_path)
+            if not downloaded["success"]:
+                return io.NodeOutput(False, downloaded["msg"], None)
 
-        from comfy_api.latest import VideoFromFile
-        video = VideoFromFile(full_path)
+            from comfy_api.latest import VideoFromFile
+            video = VideoFromFile(full_path)
 
-        return io.NodeOutput(True, "Success", video)
+            return io.NodeOutput(True, "Success", video)
