@@ -63,6 +63,10 @@ from .src.comfyui_ino_nodes.node_helpers.video_helper import (
     LOCAL_NODE_CLASS as VIDEO_HELPER_CLASS,
     LOCAL_NODE_NAME as VIDEO_HELPER_NAME
 )
+from .src.comfyui_ino_nodes.node_helpers.list_helper import (
+    LOCAL_NODE_CLASS as LIST_HELPER_CLASS,
+    LOCAL_NODE_NAME as LIST_HELPER_NAME
+)
 
 #--------------------------------- S3 helper ---------------------------------
 from .src.comfyui_ino_nodes.s3_helper import (
@@ -111,6 +115,7 @@ _node_classes.update(TIME_HELPER_CLASS)
 _node_classes.update(CAST_HELPER_CLASS)
 _node_classes.update(CAST_PATH_CLASS)
 _node_classes.update(VIDEO_HELPER_CLASS)
+_node_classes.update(LIST_HELPER_CLASS)
 
 _node_classes.update(S3_HELPER_CLASS)
 
@@ -138,6 +143,7 @@ _node_names.update(TIME_HELPER_NAME)
 _node_names.update(CAST_HELPER_NAME)
 _node_names.update(CAST_PATH_NAME)
 _node_names.update(VIDEO_HELPER_NAME)
+_node_names.update(LIST_HELPER_NAME)
 
 _node_names.update(S3_HELPER_NAME)
 
