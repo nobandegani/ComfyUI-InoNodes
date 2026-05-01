@@ -1,9 +1,5 @@
-import os
-from pathlib import Path
+from inopyutils import ino_is_err
 
-from inopyutils import ino_is_err, InoUtilHelper
-
-import folder_paths
 from comfy_api.latest import io
 
 from .s3_helper import S3Helper, S3_EMPTY_CONFIG_STRING
@@ -16,11 +12,12 @@ class InoS3DownloadString(io.ComfyNode):
             node_id="InoS3DownloadString",
             display_name="Ino S3 Download String",
             category="InoS3Helper",
-            description="Downloads a text file (txt/json/ini) from S3 and returns its content as a string.",
+            description="Downloads a text object from S3 directly into memory and returns its content as a string.",
             inputs=[
                 io.Boolean.Input("enabled", default=True, label_off="OFF", label_on="ON"),
                 io.String.Input("s3_key", default="input/example.txt"),
                 io.String.Input("s3_config", default=S3_EMPTY_CONFIG_STRING, optional=True, tooltip="you can leave it empty and pass it with env vars"),
+                io.String.Input("encoding", default="utf-8", optional=True),
             ],
             outputs=[
                 io.Boolean.Output(display_name="success"),
@@ -30,7 +27,7 @@ class InoS3DownloadString(io.ComfyNode):
         )
 
     @classmethod
-    async def execute(cls, enabled, s3_key, s3_config=None) -> io.NodeOutput:
+    async def execute(cls, enabled, s3_key, s3_config=None, encoding="utf-8") -> io.NodeOutput:
         if not enabled:
             return io.NodeOutput(False, "not enabled", "")
 
@@ -38,28 +35,13 @@ class InoS3DownloadString(io.ComfyNode):
         if not validate_s3_key["success"]:
             return io.NodeOutput(False, validate_s3_key["msg"], "")
 
-        temp_path = folder_paths.get_temp_directory()
-        save_dir = os.path.join(temp_path, "s3_download_string")
-        os.makedirs(save_dir, exist_ok=True)
-
-        random_str = InoUtilHelper.get_date_time_utc_base64()
-        ext = Path(s3_key).suffix or ".txt"
-        local_file = f"{random_str}{ext}"
-        full_path = os.path.join(save_dir, local_file)
-
         s3_instance = S3Helper.get_instance(s3_config)
         if ino_is_err(s3_instance):
             return io.NodeOutput(False, s3_instance["msg"], "")
         s3_instance = s3_instance["instance"]
 
-        downloaded = await s3_instance.download_file(s3_key=s3_key, local_file_path=full_path)
-        if not downloaded["success"]:
-            return io.NodeOutput(False, downloaded["msg"], "")
+        result = await s3_instance.get_text(s3_key=s3_key, encoding=encoding)
+        if not result["success"]:
+            return io.NodeOutput(False, result["msg"], "")
 
-        try:
-            with open(full_path, "r", encoding="utf-8") as f:
-                content = f.read()
-        except Exception as e:
-            return io.NodeOutput(False, f"Failed to read file: {e}", "")
-
-        return io.NodeOutput(True, "Success", content)
+        return io.NodeOutput(True, result.get("msg", "Success"), result.get("text", ""))

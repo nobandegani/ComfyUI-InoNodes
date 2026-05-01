@@ -1,12 +1,17 @@
-import os
 from pathlib import Path
 
-from inopyutils import InoJsonHelper, InoFileHelper, ino_is_err, InoUtilHelper
+from inopyutils import ino_is_err, InoUtilHelper
 
-import folder_paths
 from comfy_api.latest import io
 
 from .s3_helper import S3Helper, S3_EMPTY_CONFIG_STRING
+
+
+_CONTENT_TYPE_MAP = {
+    "txt": "text/plain; charset=utf-8",
+    "json": "application/json; charset=utf-8",
+    "ini": "text/plain; charset=utf-8",
+}
 
 
 class InoS3UploadString(io.ComfyNode):
@@ -16,7 +21,7 @@ class InoS3UploadString(io.ComfyNode):
             node_id="InoS3UploadString",
             display_name="Ino S3 Upload String",
             category="InoS3Helper",
-            description="Saves a string as a file (txt/json/ini) to temp then uploads it to S3.",
+            description="Uploads a string directly to S3 as a text object (no temp file).",
             is_output_node=True,
             inputs=[
                 io.Boolean.Input("enabled", default=True, label_off="OFF", label_on="ON"),
@@ -45,23 +50,8 @@ class InoS3UploadString(io.ComfyNode):
         if not validate_s3_key["success"]:
             return io.NodeOutput(string, False, validate_s3_key["msg"], "", "")
 
-        temp_path = folder_paths.get_temp_directory()
-        save_dir = os.path.join(temp_path, "s3_upload_string")
-        os.makedirs(save_dir, exist_ok=True)
-
         local_name = InoUtilHelper.get_date_time_utc_base64()
-        local_file = f"{local_name}.{save_as}"
-        full_path = os.path.join(save_dir, local_file)
-
-        if save_as == "json":
-            save_file = await InoJsonHelper.save_string_as_json_async(string, full_path)
-        else:
-            save_file = await InoFileHelper.save_string_as_file(string, full_path)
-
-        if not save_file["success"]:
-            return io.NodeOutput(string, False, save_file["msg"], "", "")
-
-        s3_name = local_name if unique_file_name else Path(filename).stem
+        s3_name = local_name if unique_file_name else (Path(filename).stem or local_name)
         s3_file = f"{s3_name}.{save_as}"
 
         s3_instance = S3Helper.get_instance(s3_config)
@@ -70,8 +60,9 @@ class InoS3UploadString(io.ComfyNode):
         s3_instance = s3_instance["instance"]
 
         s3_full_key = f"{s3_path_key.rstrip('/')}/{s3_file}"
-        s3_result = await s3_instance.upload_file(s3_key=s3_full_key, local_file_path=full_path)
+        content_type = _CONTENT_TYPE_MAP.get(save_as, "text/plain; charset=utf-8")
+        s3_result = await s3_instance.put_text(text=string, s3_key=s3_full_key, content_type=content_type)
         if not s3_result["success"]:
             return io.NodeOutput(string, False, s3_result["msg"], "", "")
 
-        return io.NodeOutput(string, True, "Success", s3_file, s3_full_key)
+        return io.NodeOutput(string, True, s3_result.get("msg", "Success"), s3_file, s3_full_key)

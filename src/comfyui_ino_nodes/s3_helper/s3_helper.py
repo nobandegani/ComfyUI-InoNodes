@@ -54,20 +54,32 @@ class S3Helper:
             }
         s3_config_dict = s3_config_dict["data"]
 
-        s3_config_dict["access_key_id"] = os.getenv('S3_ACCESS_KEY', s3_config_dict.get("access_key_id", ""))
-        s3_config_dict["access_key_secret"] = os.getenv('S3_ACCESS_SECRET', s3_config_dict.get("access_key_secret", ""))
-        s3_config_dict["endpoint_url"] = os.getenv('S3_ENDPOINT_URL', s3_config_dict.get("endpoint_url", ""))
-        s3_config_dict["region_name"] = os.getenv('S3_REGION_NAME', s3_config_dict.get("region_name", ""))
-        s3_config_dict["bucket_name"] = os.getenv('S3_BUCKET_NAME', s3_config_dict.get("bucket_name", ""))
+        # Overlay env vars on top of the JSON config. Only override when the
+        # env var is set to a non-empty value, so callers can leave fields
+        # empty in the JSON and have env vars populate them — without an
+        # accidental empty-string env var clobbering a real JSON value.
+        env_map = {
+            "access_key_id": "S3_ACCESS_KEY",
+            "access_key_secret": "S3_ACCESS_SECRET",
+            "endpoint_url": "S3_ENDPOINT_URL",
+            "region_name": "S3_REGION_NAME",
+            "bucket_name": "S3_BUCKET_NAME",
+        }
+        for field, env_name in env_map.items():
+            env_val = os.getenv(env_name)
+            if env_val:
+                s3_config_dict[field] = env_val
+            else:
+                s3_config_dict.setdefault(field, "")
 
-        if s3_config_dict.get("access_key_id", None) is None:
+        if not s3_config_dict.get("access_key_id"):
             return {
                 "success": False,
                 "msg": "S3 configuration missing access_key_id",
                 "config": ""
             }
 
-        if s3_config_dict.get("access_key_secret", None) is None:
+        if not s3_config_dict.get("access_key_secret"):
             return {
                 "success": False,
                 "msg": "S3 configuration missing access_key_secret",

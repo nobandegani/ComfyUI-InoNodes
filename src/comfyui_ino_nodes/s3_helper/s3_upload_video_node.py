@@ -1,3 +1,4 @@
+import asyncio
 import os
 from pathlib import Path
 
@@ -27,6 +28,7 @@ class InoS3UploadVideo(io.ComfyNode):
                 io.Combo.Input("video_codec", options=["h264", "auto"], optional=True),
                 io.Boolean.Input("unique_file_name", default=True, optional=True, label_off="Use filename", label_on="Unique name"),
                 io.String.Input("filename", default="", optional=True),
+                io.Boolean.Input("delete_local", default=True, optional=True, tooltip="Delete the locally saved video after a successful S3 upload."),
             ],
             outputs=[
                 io.Video.Output(display_name="video"),
@@ -38,7 +40,7 @@ class InoS3UploadVideo(io.ComfyNode):
         )
 
     @classmethod
-    async def execute(cls, enabled, video: Input.Video, s3_path_key, filename, s3_config=None, unique_file_name=True, video_format="mp4", video_codec="h264") -> io.NodeOutput:
+    async def execute(cls, enabled, video: Input.Video, s3_path_key, filename, s3_config=None, unique_file_name=True, video_format="mp4", video_codec="h264", delete_local=True) -> io.NodeOutput:
         if not enabled:
             return io.NodeOutput(video, False, "", "", "")
 
@@ -48,16 +50,25 @@ class InoS3UploadVideo(io.ComfyNode):
 
         temp_path = folder_paths.get_temp_directory()
         save_dir = os.path.join(temp_path, "s3_upload_video")
-        os.makedirs(save_dir, exist_ok=True)
+        await asyncio.to_thread(os.makedirs, save_dir, exist_ok=True)
 
         ext = Types.VideoContainer.get_extension(video_format)
         local_name = InoUtilHelper.get_date_time_utc_base64()
         local_file = f"{local_name}.{ext}"
         full_path = os.path.join(save_dir, local_file)
 
-        video.save_to(full_path, format=Types.VideoContainer(video_format), codec=Types.VideoCodec(video_codec))
+        # video.save_to() runs ffmpeg synchronously — offload to a thread.
+        try:
+            await asyncio.to_thread(
+                video.save_to,
+                full_path,
+                format=Types.VideoContainer(video_format),
+                codec=Types.VideoCodec(video_codec),
+            )
+        except Exception as e:
+            return io.NodeOutput(video, False, f"Failed to save video: {e}", "", "")
 
-        s3_name = local_name if unique_file_name else Path(filename).stem
+        s3_name = local_name if unique_file_name else (Path(filename).stem or local_name)
         s3_file = f"{s3_name}.{ext}"
 
         s3_instance = S3Helper.get_instance(s3_config)
@@ -67,5 +78,11 @@ class InoS3UploadVideo(io.ComfyNode):
 
         s3_full_key = f"{s3_path_key.rstrip('/')}/{s3_file}"
         s3_result = await s3_instance.upload_file(s3_key=s3_full_key, local_file_path=full_path)
+
+        if s3_result["success"] and delete_local:
+            try:
+                await asyncio.to_thread(os.remove, full_path)
+            except OSError:
+                pass
 
         return io.NodeOutput(video, s3_result["success"], s3_result["msg"], s3_file, s3_full_key)

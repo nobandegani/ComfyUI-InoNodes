@@ -1,3 +1,4 @@
+import asyncio
 import os
 from pathlib import Path
 
@@ -8,6 +9,11 @@ from comfy_api.latest import io
 
 from .s3_helper import S3Helper, S3_EMPTY_CONFIG_STRING
 from ..node_helper import load_image
+
+
+def _empty_image():
+    from nodes import EmptyImage
+    return EmptyImage().generate(512, 512)[0]
 
 
 class InoS3DownloadImage(io.ComfyNode):
@@ -33,18 +39,16 @@ class InoS3DownloadImage(io.ComfyNode):
 
     @classmethod
     async def execute(cls, enabled, s3_key, s3_config=None) -> io.NodeOutput:
-        from nodes import EmptyImage
-        empty_image = EmptyImage().generate(512, 512)[0]
         if not enabled:
-            return io.NodeOutput(False, "not enabled", empty_image, None)
+            return io.NodeOutput(False, "not enabled", _empty_image(), None)
 
         validate_s3_key = S3Helper.validate_s3_key(s3_key)
         if not validate_s3_key["success"]:
-            return io.NodeOutput(False, validate_s3_key["msg"], empty_image, None)
+            return io.NodeOutput(False, validate_s3_key["msg"], _empty_image(), None)
 
         temp_path = folder_paths.get_temp_directory()
         save_dir = os.path.join(temp_path, "s3_download_image")
-        os.makedirs(save_dir, exist_ok=True)
+        await asyncio.to_thread(os.makedirs, save_dir, exist_ok=True)
 
         random_str = InoUtilHelper.get_date_time_utc_base64()
         file_name = f'{random_str}{Path(s3_key).suffix}'
@@ -52,12 +56,13 @@ class InoS3DownloadImage(io.ComfyNode):
 
         s3_instance = S3Helper.get_instance(s3_config)
         if ino_is_err(s3_instance):
-            return io.NodeOutput(False, s3_instance["msg"], empty_image, None)
+            return io.NodeOutput(False, s3_instance["msg"], _empty_image(), None)
         s3_instance = s3_instance["instance"]
 
         downloaded = await s3_instance.download_file(s3_key=s3_key, local_file_path=full_path)
         if not downloaded["success"]:
-            return io.NodeOutput(False, downloaded["msg"], empty_image, None)
+            return io.NodeOutput(False, downloaded["msg"], _empty_image(), None)
 
-        output_image, output_mask = load_image(downloaded["local_file"])
+        # load_image is synchronous (PIL + torch) — offload to a thread.
+        output_image, output_mask = await asyncio.to_thread(load_image, downloaded["local_file"])
         return io.NodeOutput(True, downloaded["msg"], output_image, output_mask)
