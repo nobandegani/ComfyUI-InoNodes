@@ -1,4 +1,5 @@
 import asyncio
+import shutil
 from pathlib import Path
 
 from inopyutils import InoFileHelper
@@ -229,6 +230,67 @@ class InoCopyFiles(io.ComfyNode):
             iterate_subfolders=iterate_subfolders, rename_files=rename_files, prefix_name=prefix_name,
         )
         return io.NodeOutput(res["success"], res["msg"], rel_path, abs_path, res["logs"])
+
+
+class InoCopyFile(io.ComfyNode):
+    @classmethod
+    def define_schema(cls):
+        return io.Schema(
+            node_id="InoCopyFile",
+            display_name="Ino Copy File",
+            category="InoFileHelper",
+            description="Copies a single file from one location to another. Preserves modification time and permissions. Leave to_filename empty to keep the source filename.",
+            is_output_node=True,
+            inputs=[
+                io.Boolean.Input("enabled", default=True, label_off="OFF", label_on="ON"),
+                io.Combo.Input("from_parent_folder", options=PARENT_FOLDER_OPTIONS),
+                io.String.Input("from_folder", default=""),
+                io.String.Input("from_filename", default=""),
+                io.Combo.Input("to_parent_folder", options=PARENT_FOLDER_OPTIONS),
+                io.String.Input("to_folder", default=""),
+                io.String.Input("to_filename", default="", optional=True, tooltip="Leave empty to keep the source filename."),
+                io.Boolean.Input("overwrite", default=False, optional=True),
+            ],
+            outputs=[
+                io.Boolean.Output(display_name="success"),
+                io.String.Output(display_name="message"),
+                io.String.Output(display_name="rel_path"),
+                io.String.Output(display_name="abs_path"),
+            ],
+        )
+
+    @classmethod
+    async def execute(cls, enabled, from_parent_folder, from_folder, from_filename,
+                      to_parent_folder, to_folder, to_filename="", overwrite=False) -> io.NodeOutput:
+        if not enabled:
+            return io.NodeOutput(False, "Node is disabled", "", "")
+
+        if not from_filename:
+            return io.NodeOutput(False, "from_filename is required", "", "")
+
+        # Default the destination filename to the source filename if not provided.
+        target_filename = to_filename or from_filename
+
+        _, from_abs = resolve_comfy_path(from_parent_folder, from_folder, from_filename)
+        rel_path, to_abs = resolve_comfy_path(to_parent_folder, to_folder, target_filename)
+
+        from_path = Path(from_abs)
+        to_path = Path(to_abs)
+
+        if not from_path.is_file():
+            return io.NodeOutput(False, f"Source file not found: {from_abs}", rel_path, to_abs)
+
+        if to_path.exists() and not overwrite:
+            return io.NodeOutput(False, f"Destination already exists (overwrite=False): {to_abs}", rel_path, to_abs)
+
+        try:
+            await asyncio.to_thread(to_path.parent.mkdir, parents=True, exist_ok=True)
+            # shutil.copy2 preserves mtime + permissions, like the move helper does.
+            await asyncio.to_thread(shutil.copy2, str(from_path), str(to_path))
+        except Exception as e:
+            return io.NodeOutput(False, f"Copy failed: {e}", rel_path, to_abs)
+
+        return io.NodeOutput(True, "copied", rel_path, to_abs)
 
 
 class InoCountFiles(io.ComfyNode):
@@ -497,6 +559,7 @@ LOCAL_NODE_CLASS = {
     "InoRemoveFile": InoRemoveFile,
     "InoRemoveFolder": InoRemoveFolder,
     "InoCopyFiles": InoCopyFiles,
+    "InoCopyFile": InoCopyFile,
     "InoCountFiles": InoCountFiles,
     "InoValidateMediaFiles": InoValidateMediaFiles,
     "InoRemoveDuplicateFiles": InoRemoveDuplicateFiles,
@@ -512,6 +575,7 @@ LOCAL_NODE_NAME = {
     "InoRemoveFile": "Ino Remove File",
     "InoRemoveFolder": "Ino Remove Folder",
     "InoCopyFiles": "Ino Copy Files",
+    "InoCopyFile": "Ino Copy File",
     "InoCountFiles": "Ino Count Files",
     "InoValidateMediaFiles": "Ino Validate Media Files",
     "InoRemoveDuplicateFiles": "Ino Remove Duplicate Files",
