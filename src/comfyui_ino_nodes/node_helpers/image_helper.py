@@ -861,28 +861,50 @@ class InoMegapixelResolution(io.ComfyNode):
 # NSFW detection
 # ---------------------------------------------------------------------------
 
-# Module-level cache of HF image-classification pipelines, keyed by
-# "{model_id}|{cpu|gpu}". We cache outside the class because V3 ComfyUI locks
-# the node class at execution time, which forbids `cls.<attr> = value`.
+# Module-level cache of (processor, model, device, id2label) bundles, keyed
+# by "{model_id}|{cpu|gpu}". We cache outside the node class because V3
+# ComfyUI locks the node class at execution time, which forbids
+# `cls.<attr> = value`.
 _NSFW_CLASSIFIERS: dict = {}
 
 
 def _get_nsfw_classifier(model_id: str, use_gpu: bool):
-    """Lazy-load and cache the HF image-classification pipeline.
+    """Lazy-load and cache the processor + model.
 
-    On first call for a given (model_id, device) pair the model is downloaded
-    via `transformers.pipeline(...)` (which uses the standard HF cache at
-    ~/.cache/huggingface/hub or wherever HF_HOME points).
+    We deliberately bypass `transformers.pipeline()` because it loads the
+    model with meta tensors (low_cpu_mem_usage=True default) and then calls
+    `model.to(device)` which fails with:
+        "Cannot copy out of meta tensor; no data! Please use
+         torch.nn.Module.to_empty() instead of torch.nn.Module.to()..."
+    on certain transformers + accelerate version combinations.
+
+    Loading explicitly with `low_cpu_mem_usage=False` keeps the weights on
+    real (non-meta) tensors so the subsequent .to(device) is a normal copy.
+
+    On first call for a given (model_id, device) pair the weights are
+    downloaded via the standard HuggingFace cache (~/.cache/huggingface/hub
+    or HF_HOME).
     """
     cache_key = f"{model_id}|{'gpu' if use_gpu else 'cpu'}"
     cached = _NSFW_CLASSIFIERS.get(cache_key)
     if cached is not None:
         return cached
-    from transformers import pipeline
-    device = 0 if (use_gpu and torch.cuda.is_available()) else -1
-    pipe = pipeline("image-classification", model=model_id, device=device, top_k=None)
-    _NSFW_CLASSIFIERS[cache_key] = pipe
-    return pipe
+
+    from transformers import AutoImageProcessor, AutoModelForImageClassification
+
+    processor = AutoImageProcessor.from_pretrained(model_id)
+    model = AutoModelForImageClassification.from_pretrained(
+        model_id,
+        low_cpu_mem_usage=False,  # avoid meta-tensor materialization path
+    )
+    device = torch.device("cuda" if (use_gpu and torch.cuda.is_available()) else "cpu")
+    model = model.to(device)
+    model.eval()
+
+    id2label = {int(k): str(v) for k, v in model.config.id2label.items()}
+    bundle = (processor, model, device, id2label)
+    _NSFW_CLASSIFIERS[cache_key] = bundle
+    return bundle
 
 
 def _classify_and_maybe_blur(image_chw_tensor, classifier, threshold: float, blur_radius: int):
@@ -896,14 +918,27 @@ def _classify_and_maybe_blur(image_chw_tensor, classifier, threshold: float, blu
     Returns (out_arr_hwc_float, nsfw_score, sfw_score, is_nsfw).
     """
     from PIL import Image as PILImage, ImageFilter
+
+    processor, model, device, id2label = classifier
+
     arr_uint8 = (image_chw_tensor.cpu().numpy() * 255).clip(0, 255).astype(np.uint8)
     pil = PILImage.fromarray(arr_uint8)
-    results = classifier(pil)
-    # Pipeline returns a list of {"label": "...", "score": float}.
-    scores = {str(r["label"]).upper(): float(r["score"]) for r in results}
+
+    inputs = processor(images=pil, return_tensors="pt")
+    inputs = {k: v.to(device) for k, v in inputs.items()}
+    with torch.no_grad():
+        logits = model(**inputs).logits
+    probs = torch.softmax(logits, dim=-1)[0].detach().cpu().tolist()
+
+    scores: dict = {}
+    for idx, p in enumerate(probs):
+        label = id2label.get(idx, str(idx))
+        scores[label.upper()] = float(p)
+
     nsfw_score = scores.get("NSFW", 0.0)
     sfw_score = scores.get("SFW", 0.0)
     is_nsfw = nsfw_score >= threshold
+
     if is_nsfw and blur_radius > 0:
         blurred = pil.filter(ImageFilter.GaussianBlur(radius=blur_radius))
         out_arr = np.array(blurred, dtype=np.float32) / 255.0
