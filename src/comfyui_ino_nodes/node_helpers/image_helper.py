@@ -857,6 +857,118 @@ class InoMegapixelResolution(io.ComfyNode):
         return io.NodeOutput(width, height, ar_x, ar_y, ar_string)
 
 
+# ---------------------------------------------------------------------------
+# NSFW detection
+# ---------------------------------------------------------------------------
+
+# Module-level cache of HF image-classification pipelines, keyed by
+# "{model_id}|{cpu|gpu}". We cache outside the class because V3 ComfyUI locks
+# the node class at execution time, which forbids `cls.<attr> = value`.
+_NSFW_CLASSIFIERS: dict = {}
+
+
+def _get_nsfw_classifier(model_id: str, use_gpu: bool):
+    """Lazy-load and cache the HF image-classification pipeline.
+
+    On first call for a given (model_id, device) pair the model is downloaded
+    via `transformers.pipeline(...)` (which uses the standard HF cache at
+    ~/.cache/huggingface/hub or wherever HF_HOME points).
+    """
+    cache_key = f"{model_id}|{'gpu' if use_gpu else 'cpu'}"
+    cached = _NSFW_CLASSIFIERS.get(cache_key)
+    if cached is not None:
+        return cached
+    from transformers import pipeline
+    device = 0 if (use_gpu and torch.cuda.is_available()) else -1
+    pipe = pipeline("image-classification", model=model_id, device=device, top_k=None)
+    _NSFW_CLASSIFIERS[cache_key] = pipe
+    return pipe
+
+
+def _classify_and_maybe_blur(image_chw_tensor, classifier, threshold: float, blur_radius: int):
+    """Synchronous helper: classify a single (H, W, C) torch tensor [0,1] and
+    blur it if NSFW score >= threshold.
+
+    Returns (out_arr_hwc_float, nsfw_score, sfw_score, is_nsfw).
+    """
+    from PIL import Image as PILImage, ImageFilter
+    arr_uint8 = (image_chw_tensor.cpu().numpy() * 255).clip(0, 255).astype(np.uint8)
+    pil = PILImage.fromarray(arr_uint8)
+    results = classifier(pil)
+    # Pipeline returns a list of {"label": "...", "score": float}.
+    scores = {str(r["label"]).upper(): float(r["score"]) for r in results}
+    nsfw_score = scores.get("NSFW", 0.0)
+    sfw_score = scores.get("SFW", 0.0)
+    is_nsfw = nsfw_score >= threshold
+    if is_nsfw:
+        blurred = pil.filter(ImageFilter.GaussianBlur(radius=blur_radius))
+        out_arr = np.array(blurred, dtype=np.float32) / 255.0
+        # GaussianBlur preserves mode; if the source had no alpha, the output
+        # is HxWx3 — same shape as the original tensor.
+    else:
+        out_arr = image_chw_tensor.cpu().numpy().astype(np.float32)
+    return out_arr, nsfw_score, sfw_score, is_nsfw
+
+
+class InoNsfwDetect(io.ComfyNode):
+    @classmethod
+    def define_schema(cls):
+        return io.Schema(
+            node_id="InoNsfwDetect",
+            display_name="Ino NSFW Detect",
+            category="InoImageHelper",
+            description=(
+                "Classifies the image with Marqo/nsfw-image-detection-384. "
+                "Returns the original image when SFW; returns a Gaussian-blurred copy when NSFW. "
+                "The model is downloaded once on first use and cached by the HuggingFace transformers cache."
+            ),
+            inputs=[
+                io.Image.Input("image"),
+                io.Float.Input("threshold", default=0.5, min=0.0, max=1.0, step=0.05, tooltip="NSFW score above which the image is flagged."),
+                io.Int.Input("blur_radius", default=30, min=1, max=200, optional=True, tooltip="Gaussian blur radius applied to flagged images."),
+                io.String.Input("model_id", default="Marqo/nsfw-image-detection-384", optional=True, tooltip="HuggingFace model id. Must be an image-classification model with NSFW/SFW labels."),
+                io.Boolean.Input("use_gpu", default=False, optional=True, label_off="CPU", label_on="GPU", tooltip="Run the classifier on CUDA when available. CPU is recommended to avoid evicting diffusion weights from VRAM."),
+            ],
+            outputs=[
+                io.Image.Output(display_name="image"),
+                io.Boolean.Output(display_name="is_nsfw"),
+                io.Float.Output(display_name="nsfw_score"),
+                io.Float.Output(display_name="sfw_score"),
+                io.String.Output(display_name="message"),
+            ],
+        )
+
+    @classmethod
+    async def execute(cls, image, threshold=0.5, blur_radius=30, model_id="Marqo/nsfw-image-detection-384", use_gpu=False) -> io.NodeOutput:
+        if image is None or image.shape[0] == 0:
+            return io.NodeOutput(image, False, 0.0, 0.0, "empty input")
+
+        try:
+            classifier = await asyncio.to_thread(_get_nsfw_classifier, model_id, use_gpu)
+        except Exception as e:
+            return io.NodeOutput(image, False, 0.0, 0.0, f"Failed to load classifier: {e}")
+
+        try:
+            out_tensors: list[torch.Tensor] = []
+            any_nsfw = False
+            max_nsfw = 0.0
+            max_sfw = 0.0
+            for i in range(image.shape[0]):
+                arr, nsfw, sfw, is_nsfw = await asyncio.to_thread(
+                    _classify_and_maybe_blur, image[i], classifier, threshold, blur_radius
+                )
+                out_tensors.append(torch.from_numpy(arr).unsqueeze(0))
+                any_nsfw = any_nsfw or is_nsfw
+                if nsfw > max_nsfw:
+                    max_nsfw = nsfw
+                if sfw > max_sfw:
+                    max_sfw = sfw
+            out_image = torch.cat(out_tensors, dim=0)
+            return io.NodeOutput(out_image, any_nsfw, float(max_nsfw), float(max_sfw), "ok")
+        except Exception as e:
+            return io.NodeOutput(image, False, 0.0, 0.0, f"Classification failed: {e}")
+
+
 LOCAL_NODE_CLASS = {
     "InoSaveImages": InoSaveImages,
     "InoImageResizeByLongerSideV1": InoImageResizeByLongerSideV1,
@@ -874,6 +986,7 @@ LOCAL_NODE_CLASS = {
     "InoIsImageLandscape": InoIsImageLandscape,
     "InoIsImageSquare": InoIsImageSquare,
     "InoMegapixelResolution": InoMegapixelResolution,
+    "InoNsfwDetect": InoNsfwDetect,
 }
 LOCAL_NODE_NAME = {
     "InoSaveImages": "Ino Save Images",
@@ -892,4 +1005,5 @@ LOCAL_NODE_NAME = {
     "InoIsImageLandscape": "Ino Is Image Landscape",
     "InoIsImageSquare": "Ino Is Image Square",
     "InoMegapixelResolution": "Ino Megapixel Resolution",
+    "InoNsfwDetect": "Ino NSFW Detect",
 }
