@@ -887,7 +887,11 @@ def _get_nsfw_classifier(model_id: str, use_gpu: bool):
 
 def _classify_and_maybe_blur(image_chw_tensor, classifier, threshold: float, blur_radius: int):
     """Synchronous helper: classify a single (H, W, C) torch tensor [0,1] and
-    blur it if NSFW score >= threshold.
+    blur it if NSFW score >= threshold and blur_radius > 0.
+
+    When blur_radius == 0 the image is returned unchanged even if flagged —
+    useful for detect-only workflows where the caller wants the raw image
+    plus the `is_nsfw` flag and decides downstream what to do.
 
     Returns (out_arr_hwc_float, nsfw_score, sfw_score, is_nsfw).
     """
@@ -900,7 +904,7 @@ def _classify_and_maybe_blur(image_chw_tensor, classifier, threshold: float, blu
     nsfw_score = scores.get("NSFW", 0.0)
     sfw_score = scores.get("SFW", 0.0)
     is_nsfw = nsfw_score >= threshold
-    if is_nsfw:
+    if is_nsfw and blur_radius > 0:
         blurred = pil.filter(ImageFilter.GaussianBlur(radius=blur_radius))
         out_arr = np.array(blurred, dtype=np.float32) / 255.0
         # GaussianBlur preserves mode; if the source had no alpha, the output
@@ -919,13 +923,14 @@ class InoNsfwDetect(io.ComfyNode):
             category="InoImageHelper",
             description=(
                 "Classifies the image with Marqo/nsfw-image-detection-384. "
-                "Returns the original image when SFW; returns a Gaussian-blurred copy when NSFW. "
+                "Returns the original image when SFW. When NSFW and blur_radius > 0, returns a Gaussian-blurred copy; "
+                "set blur_radius to 0 for detect-only mode (image unchanged, is_nsfw still reflects the verdict). "
                 "The model is downloaded once on first use and cached by the HuggingFace transformers cache."
             ),
             inputs=[
                 io.Image.Input("image"),
                 io.Float.Input("threshold", default=0.5, min=0.0, max=1.0, step=0.05, tooltip="NSFW score above which the image is flagged."),
-                io.Int.Input("blur_radius", default=30, min=1, max=200, optional=True, tooltip="Gaussian blur radius applied to flagged images."),
+                io.Int.Input("blur_radius", default=30, min=0, max=200, optional=True, tooltip="Gaussian blur radius applied to flagged images. Set to 0 to skip blurring even when the image is flagged (detect-only mode)."),
                 io.String.Input("model_id", default="Marqo/nsfw-image-detection-384", optional=True, tooltip="HuggingFace model id. Must be an image-classification model with NSFW/SFW labels."),
                 io.Boolean.Input("use_gpu", default=False, optional=True, label_off="CPU", label_on="GPU", tooltip="Run the classifier on CUDA when available. CPU is recommended to avoid evicting diffusion weights from VRAM."),
             ],
