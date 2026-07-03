@@ -206,14 +206,12 @@ class InoImageResizeByLongerSideAndCropV2(io.ComfyNode):
             resize_height = target_height
             resize_width = round((target_height / source_height) * source_width)
 
-        resizer = ResizeAndPadImage()
-        resized_image = resizer.resize_and_pad(image, resize_width, resize_height, padding_color, interpolation)
+        resized_image = ResizeAndPadImage.execute(image, resize_width, resize_height, padding_color, interpolation)
 
         if not crop:
-            return io.NodeOutput(resized_image[0])
+            return io.NodeOutput(resized_image.args[0])
 
-        cropper = ImageCrop()
-        canvas = resized_image[0]
+        canvas = resized_image.args[0]
         canvas_h = int(canvas.shape[1])
         canvas_w = int(canvas.shape[2])
 
@@ -242,9 +240,9 @@ class InoImageResizeByLongerSideAndCropV2(io.ComfyNode):
         crop_x = clamp(crop_x, 0, max(0, canvas_w - 1))
         crop_y = clamp(crop_y, 0, max(0, canvas_h - 1))
 
-        cropped_image = cropper.crop(canvas, int(target_width), int(target_height), int(crop_x), int(crop_y))
+        cropped_image = ImageCrop.execute(canvas, int(target_width), int(target_height), int(crop_x), int(crop_y))
 
-        return io.NodeOutput(cropped_image[0])
+        return io.NodeOutput(cropped_image.args[0])
 
 
 class InoResizeCropImage(io.ComfyNode):

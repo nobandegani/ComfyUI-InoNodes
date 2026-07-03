@@ -566,12 +566,12 @@ class InoGetSamplerConfig(io.ComfyNode):
         from comfy_extras.nodes_custom_sampler import BasicGuider, CFGGuider, KSamplerSelect, BasicScheduler
 
         if use_cfg_val:
-            get_guider = CFGGuider().get_guider(model=model, positive=positive, negative=negative, cfg=model_cfg.get("cfg", -1))
+            get_guider = CFGGuider.execute(model=model, positive=positive, negative=negative, cfg=model_cfg.get("cfg", -1))
         else:
-            get_guider = BasicGuider().get_guider(model=model, conditioning=positive)
+            get_guider = BasicGuider.execute(model=model, conditioning=positive)
 
-        get_sampler = KSamplerSelect().get_sampler(sampler_name=model_cfg.get("sampler_name", "none"))
-        get_sigmas = BasicScheduler().get_sigmas(
+        get_sampler = KSamplerSelect.execute(sampler_name=model_cfg.get("sampler_name", "none"))
+        get_sigmas = BasicScheduler.execute(
             model=model, scheduler=model_cfg.get("scheduler_name", "none"),
             steps=model_cfg.get("steps", -1), denoise=model_cfg.get("denoise", -1),
         )
@@ -582,7 +582,7 @@ class InoGetSamplerConfig(io.ComfyNode):
             return io.NodeOutput(None, None, None, config, "")
 
         ino_print_log("InoGetSamplerConfig", "success")
-        return io.NodeOutput(get_guider[0], get_sampler[0], get_sigmas[0], config, model_cfg_str["data"])
+        return io.NodeOutput(get_guider.args[0], get_sampler.args[0], get_sigmas.args[0], config, model_cfg_str["data"])
 
 
 class InoGetConditioning(io.ComfyNode):
@@ -642,17 +642,17 @@ class InoGetConditioning(io.ComfyNode):
         from comfy_extras.nodes_flux import CLIPTextEncodeFlux, FluxGuidance
 
         if use_flux:
-            positive_condition = CLIPTextEncodeFlux().encode(clip=clip, clip_l=positive1, t5xxl=positive2, guidance=final_guidance)
+            positive_condition = CLIPTextEncodeFlux.execute(clip=clip, clip_l=positive1, t5xxl=positive2, guidance=final_guidance).args[0]
         else:
-            positive_condition = CLIPTextEncode().encode(clip=clip, text=positive1)
+            positive_condition = CLIPTextEncode().encode(clip=clip, text=positive1)[0]
 
         if not use_flux and use_flux_guid:
-            positive_condition = FluxGuidance().append(conditioning=positive_condition[0], guidance=final_guidance)
+            positive_condition = FluxGuidance.execute(conditioning=positive_condition, guidance=final_guidance).args[0]
 
         if use_neg:
-            negative_condition = CLIPTextEncode().encode(clip=clip, text=negative)
+            negative_condition = CLIPTextEncode().encode(clip=clip, text=negative)[0]
         else:
-            negative_condition = ConditioningZeroOut().zero_out(conditioning=positive_condition[0])
+            negative_condition = ConditioningZeroOut().zero_out(conditioning=positive_condition)[0]
 
         model_cfg_str = InoJsonHelper.dict_to_string(model_cfg)
         if not model_cfg_str["success"]:
@@ -660,7 +660,7 @@ class InoGetConditioning(io.ComfyNode):
             return io.NodeOutput(None, None, config, "")
 
         ino_print_log("InoGetConditioning", "success")
-        return io.NodeOutput(positive_condition[0], negative_condition[0], config, model_cfg_str["data"])
+        return io.NodeOutput(positive_condition, negative_condition, config, model_cfg_str["data"])
 
 
 class InoGetModelDownloadConfig(io.ComfyNode):
