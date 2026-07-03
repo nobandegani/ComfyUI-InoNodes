@@ -27,6 +27,7 @@ class InoS3UploadAudio(io.ComfyNode):
                 io.Boolean.Input("unique_file_name", default=True, optional=True, label_off="Use filename", label_on="Unique name"),
                 io.String.Input("filename", default="", optional=True),
                 io.Boolean.Input("delete_local", default=True, optional=True, tooltip="Delete the locally saved MP3 after a successful S3 upload."),
+                io.Combo.Input("quality", options=["V0", "128k", "320k"], default="128k", optional=True, tooltip="MP3 encoding quality."),
             ],
             outputs=[
                 io.Audio.Output(display_name="audio"),
@@ -38,7 +39,7 @@ class InoS3UploadAudio(io.ComfyNode):
         )
 
     @classmethod
-    async def execute(cls, enabled, audio, s3_path_key, filename, s3_config=None, unique_file_name=True, delete_local=True) -> io.NodeOutput:
+    async def execute(cls, enabled, audio, s3_path_key, filename, s3_config=None, unique_file_name=True, delete_local=True, quality="128k") -> io.NodeOutput:
         if not enabled:
             return io.NodeOutput(audio, False, "", "", "")
 
@@ -48,21 +49,26 @@ class InoS3UploadAudio(io.ComfyNode):
 
         local_name = InoUtilHelper.get_date_time_utc_base64()
 
-        # SaveAudioMP3 writes the MP3 to ComfyUI's output directory and
-        # returns a UI payload with the final filename. We reuse it instead
-        # of re-implementing MP3 encoding, then upload the resulting file.
-        from comfy_extras.nodes_audio import SaveAudioMP3
+        # Encode the MP3 with AudioSaveHelper instead of SaveAudioMP3.execute:
+        # output nodes read cls.hidden, which is only populated on their own
+        # execution clone, so invoking one from another node crashes (issue #3).
+        # Passing our own cls keeps the workflow metadata embedded in the file;
+        # it is skipped when execute() is called outside the executor, where
+        # cls.hidden is None.
+        from comfy_api.latest import ui
 
+        metadata_cls = cls if getattr(cls, "hidden", None) is not None else None
         try:
-            save_audio = SaveAudioMP3.execute(
-                audio=audio, filename_prefix=local_name, format="mp3", quality="128k"
+            save_audio = ui.AudioSaveHelper.get_save_audio_ui(
+                audio, filename_prefix=local_name, cls=metadata_cls, format="mp3", quality=quality,
             )
         except Exception as e:
             return io.NodeOutput(audio, False, f"Failed to save audio: {e}", "", "")
 
         try:
-            saved_filename = save_audio.ui.as_dict()["audio"][0]["filename"]
-        except (AttributeError, KeyError, IndexError, TypeError) as e:
+            saved = save_audio.results[0]
+            saved_filename = str(Path(saved.subfolder) / saved.filename) if saved.subfolder else saved.filename
+        except (AttributeError, IndexError, TypeError) as e:
             return io.NodeOutput(audio, False, f"Audio saved but failed to read result filename: {e}", "", "")
 
         output_path = folder_paths.get_output_directory()
